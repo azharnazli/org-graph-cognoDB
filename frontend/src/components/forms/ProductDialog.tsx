@@ -37,7 +37,7 @@ export function ProductDialog({ open, onOpenChange, initial, onSaved }: ProductD
     setSku(initial?.sku ?? "");
     setCategory(initial?.category ?? "");
     setError(null);
-  }, [open, initial]);
+  }, [open, initial?.id]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

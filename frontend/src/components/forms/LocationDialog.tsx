@@ -37,7 +37,7 @@ export function LocationDialog({ open, onOpenChange, initial, onSaved }: Locatio
     setCountry(initial?.country ?? "");
     setRegion(initial?.region ?? "");
     setError(null);
-  }, [open, initial]);
+  }, [open, initial?.id]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

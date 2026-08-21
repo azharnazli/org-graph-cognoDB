@@ -38,7 +38,7 @@ export function SupplierDialog({ open, onOpenChange, initial, onSaved }: Supplie
     const detail = initial && "location" in initial ? initial : null;
     setLocationId(initial?.locationId ?? detail?.location?.id ?? "");
     setError(null);
-  }, [open, initial]);
+  }, [open, initial?.id]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

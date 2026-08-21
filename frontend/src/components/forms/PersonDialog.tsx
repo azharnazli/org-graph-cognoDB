@@ -63,7 +63,7 @@ export function PersonDialog({ open, onOpenChange, initial, onSaved }: PersonDia
     setRoleId(initial?.roleId ?? detail?.role?.id ?? "");
     setReportsToId(initial?.reportsToId ?? detail?.reportsTo?.id ?? "");
     setError(null);
-  }, [open, initial]);
+  }, [open, initial?.id]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

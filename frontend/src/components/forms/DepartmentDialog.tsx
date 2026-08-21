@@ -39,7 +39,7 @@ export function DepartmentDialog({ open, onOpenChange, initial, onSaved }: Depar
     const detail = initial && "location" in initial ? initial : null;
     setLocationId(initial?.locationId ?? detail?.location?.id ?? "");
     setError(null);
-  }, [open, initial]);
+  }, [open, initial?.id]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -57,8 +57,12 @@ export function ProjectDialog({ open, onOpenChange, initial, onSaved }: ProjectD
   // Reset form when the dialog opens with a different entity. Also seeds
   // managerIds from the freshly-loaded manager list (ProjectDetail.managers
   // gives us the same data without an extra round trip when available).
+  // Keyed on the entity id rather than the whole object so a parent refetch
+  // that hands back a fresh row can't clobber mid-edit typing.
+  const seededForId = useRef<string | null>(null);
   useEffect(() => {
     if (!open) return;
+    seededForId.current = null;
     setName(initial?.name ?? "");
     setStatus(initial?.status ?? "planned");
     const detail = initial && "department" in initial ? initial : null;
@@ -68,15 +72,20 @@ export function ProjectDialog({ open, onOpenChange, initial, onSaved }: ProjectD
         ? initial.managers.map((m) => m.id)
         : [],
     );
+    if (initial && "managers" in initial) seededForId.current = initial.id;
     setError(null);
-  }, [open, initial]);
+  }, [open, initial?.id]);
 
-  // Once the per-project managers endpoint resolves, overwrite managerIds —
-  // covers the list-page case where ProjectDetail.managers isn't available.
+  // Once the per-project managers endpoint resolves, seed managerIds — covers
+  // the list-page case where ProjectDetail.managers isn't available. Guarded
+  // by a ref so later refetches (window focus, cache invalidation) can't
+  // overwrite the user's toggles mid-edit.
   useEffect(() => {
     if (!open || !initial?.id) return;
+    if (seededForId.current === initial.id) return;
     if (initialManagers.data) {
       setManagerIds(initialManagers.data.data);
+      seededForId.current = initial.id;
     }
   }, [open, initial?.id, initialManagers.data]);
 
