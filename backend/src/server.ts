@@ -12,6 +12,7 @@ import { locationsRouter } from "./routes/locations.js";
 import { searchRouter } from "./routes/search.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { queryRouter } from "./routes/query.js";
+import { graphRouter } from "./routes/graph.js";
 import { verifyConnection, closeDriver } from "./db/driver.js";
 
 const PORT = Number(process.env["PORT"] ?? 3000);
@@ -37,6 +38,7 @@ app.use("/api", locationsRouter);
 app.use("/api", searchRouter);
 app.use("/api", dashboardRouter);
 app.use("/api", queryRouter);
+app.use("/api", graphRouter);
 
 // 404
 app.use((_req, res) => {

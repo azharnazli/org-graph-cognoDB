@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState, ErrorState } from "@/components/common/DataState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EntityGraph } from "@/components/graph/EntityGraph";
 import { projectStatusVariant, PROJECT_STATUS_LABEL } from "@/lib/format";
 
 export function DepartmentDetailPage() {
@@ -22,6 +23,16 @@ export function DepartmentDetailPage() {
       <PageHeader title={detail.name} description={`Cost center ${detail.costCenter}`} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Local graph</CardTitle>
+            <CardDescription>People, projects, and location — click any node to navigate.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EntityGraph nodeId={detail.id} depth={2} height={320} />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Location</CardTitle>

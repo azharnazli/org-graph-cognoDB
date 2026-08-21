@@ -22,21 +22,28 @@ export function DashboardPage() {
       ) : data?.data ? (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard title="People" value={data.data.people} />
-            <StatCard title="Departments" value={data.data.departments} />
-            <StatCard title="Projects" value={data.data.projects} description={`${data.data.activeProjects} active`} />
-            <StatCard title="Products" value={data.data.products} />
-            <StatCard title="Suppliers" value={data.data.suppliers} />
-            <StatCard title="Locations" value={data.data.locations} />
+            <StatCard title="People" value={data.data.people} to="/people" />
+            <StatCard title="Departments" value={data.data.departments} to="/departments" />
+            <StatCard
+              title="Projects"
+              value={data.data.projects}
+              description={`${data.data.activeProjects} active`}
+              to="/projects"
+            />
+            <StatCard title="Products" value={data.data.products} to="/products" />
+            <StatCard title="Suppliers" value={data.data.suppliers} to="/suppliers" />
+            <StatCard title="Locations" value={data.data.locations} to="/locations" />
             <StatCard
               title="Active Projects"
               value={data.data.activeProjects}
               description={`of ${data.data.projects} total`}
+              to="/projects?status=active"
             />
             <StatCard
               title="Regions"
               value={Object.keys(data.data.suppliersInRegion).length}
               description="with suppliers"
+              to="/suppliers"
             />
           </div>
 

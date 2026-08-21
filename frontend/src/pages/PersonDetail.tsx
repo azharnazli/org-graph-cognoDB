@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityGraph } from "@/components/graph/EntityGraph";
 import { projectStatusVariant, PROJECT_STATUS_LABEL, ROLE_LEVEL_LABEL, roleLevelVariant, formatDate } from "@/lib/format";
 
 export function PersonDetailPage() {
@@ -30,6 +31,16 @@ export function PersonDetailPage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Local graph</CardTitle>
+            <CardDescription>Direct connections in the graph — click any node to navigate.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EntityGraph nodeId={detail.id} depth={2} height={320} />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Profile</CardTitle>
