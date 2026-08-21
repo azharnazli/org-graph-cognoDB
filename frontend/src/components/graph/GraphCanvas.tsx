@@ -18,6 +18,8 @@ export interface GraphCanvasProps {
   onNodeClick?: (id: string) => void;
 }
 
+const HIT_RADIUS = 14;
+
 export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClick }: GraphCanvasProps) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -55,26 +57,51 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
   // rebuilt against new data.
   const graphDataVersion = useMemo(() => Math.random(), [graphData]);
 
-  // Retune the d3 forces once the engine is up so nodes don't pile on top of
-  // each other in dense regions. The library exposes the simulation through
-  // `d3Force(name)` for live tuning.
+  // The simulation mutates node objects in place — once it's run, each node
+  // has live `x`, `y`, `vx`, `vy`. We need the SAME object references for
+  // custom hit detection below, since the React-side `nodes` prop never
+  // receives those updates. A ref to graphData captures the mutated copies.
+  const graphDataRef = useRef(graphData);
+  graphDataRef.current = graphData;
+
+  // Captured each frame from the canvas 2D context's transform. The library
+  // applies pan/zoom via `ctx.setTransform(...)` during draw, so we have to
+  // grab it from the rendered frame to invert it for screen→graph coords.
+  const ctxTransformRef = useRef<DOMMatrix | null>(null);
+
+  // Retune the d3 forces once the engine is up. The defaults are tuned for
+  // a quick, dense packing — which produces overlapping nodes that this
+  // library cannot reliably hit-test (its shadow-canvas detection eats
+  // clicks where hit circles overlap).
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg) return;
+
+    // 1. Kill the centre force. The default strength=1 drags every node
+    //    toward the geometric middle, fighting the charge force and
+    //    packing things into the centre. Weakening it lets nodes breathe.
+    const center = fg.d3Force("center");
+    if (center && "strength" in center) {
+      (center as unknown as { strength: (n: number) => unknown }).strength(0.05);
+    }
+    // 2. Stronger charge so nodes push apart harder.
     const charge = fg.d3Force("charge");
     if (charge && "strength" in charge) {
-      (charge as unknown as { strength: (n: number) => unknown }).strength(-450);
+      (charge as unknown as { strength: (n: number) => unknown }).strength(-700);
     }
+    // 3. Generous collide radius. nodeRelSize=6 → visible radius ~6px, so
+    //    50px of collision space leaves ~38px between visible edges — far
+    //    more than the hit-circle overlap that causes click swallowing.
     const collide = fg.d3Force("collide");
     if (collide && "radius" in collide) {
-      (collide as unknown as { radius: (n: number) => unknown }).radius(45);
+      (collide as unknown as { radius: (n: number) => unknown }).radius(50);
     }
+    // 4. Longer link distance so neighbours don't pull each other back
+    //    into the same cluster.
     const link = fg.d3Force("link");
     if (link && "distance" in link) {
       (link as unknown as { distance: (n: number) => unknown }).distance(90);
     }
-    // Force the engine to run long enough to actually settle — the default
-    // 2s wasn't enough for dense neighbourhood views.
     fg.d3ReheatSimulation();
   }, [graphDataVersion]);
 
@@ -90,7 +117,10 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     return ids;
   }, [hoverId, links]);
 
-  const handleClick = useCallback(
+  // Shared click handler — invoked by our custom canvas-level click handler
+  // below. Resolves which behaviour to take (inspect-only vs navigate) based
+  // on the `onNodeClick` prop.
+  const handleNode = useCallback(
     (node: GraphNode): void => {
       if (onNodeClick) {
         onNodeClick(node.id);
@@ -133,14 +163,53 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     [hoverNeighbors, hoverId],
   ) as unknown as Record<string, unknown>;
 
-  // We deliberately do NOT pass nodeCanvasObject or nodePointerAreaPaint.
-  // The library's default rendering uses the visible circle as the hit area
-  // with proper z-ordering — so every node is reliably clickable even when
-  // hit circles overlap. Custom-painting the hit area used a unique index
-  // colour per node on the shadow canvas; where two hit areas overlapped,
-  // the last-painted one won, which silently swallowed clicks on whichever
-  // node sat behind it. (That's why Snack Box, sitting behind the project
-  // hub in the Vendor Consolidation view, was unclickable.)
+  // Custom click handler. The library's shadow-canvas hit detection has a
+  // long-standing bug: when two hit circles overlap, the last-painted one
+  // wins, silently swallowing clicks meant for the node behind. We bypass
+  // it entirely — on a DOM click event, convert screen coords to graph
+  // coords using the inverse of the canvas's current transform, then pick
+  // the closest node within HIT_RADIUS. This means even an obscured node
+  // can still be clicked reliably.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const canvas = container.querySelector("canvas");
+    if (!canvas) return;
+
+    const onClick = (e: MouseEvent): void => {
+      const rect = canvas.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+
+      // Apply the inverse of the canvas transform to map screen→graph coords.
+      // Identity fallback handles a click that races the first painted frame.
+      const m = ctxTransformRef.current ?? new DOMMatrix();
+      const inv = m.inverse();
+      const graphX = inv.a * screenX + inv.c * screenY + inv.e;
+      const graphY = inv.b * screenX + inv.d * screenY + inv.f;
+
+      let closest: GraphNode | null = null;
+      let closestDist = Infinity;
+      for (const node of graphDataRef.current.nodes) {
+        // d3-force mutates x/y onto nodes at runtime; the GraphNode type
+        // doesn't declare them, so narrow via intersection.
+        const nx = (node as GraphNode & { x?: number }).x;
+        const ny = (node as GraphNode & { y?: number }).y;
+        if (typeof nx !== "number" || typeof ny !== "number") continue;
+        const dx = nx - graphX;
+        const dy = ny - graphY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < HIT_RADIUS && dist < closestDist) {
+          closest = node;
+          closestDist = dist;
+        }
+      }
+      if (closest) handleNode(closest);
+    };
+
+    canvas.addEventListener("click", onClick);
+    return () => canvas.removeEventListener("click", onClick);
+  }, [handleNode]);
 
   // nodeColor is a function — return a brighter/different shade for the
   // currently selected node so the selection is visible without custom paint.
@@ -177,6 +246,12 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     node.fy = undefined;
   }, []);
 
+  // Capture the canvas's current transform every frame so the click handler
+  // can map screen coords back to graph coords.
+  const handleRenderFramePost = useCallback((ctx: CanvasRenderingContext2D) => {
+    ctxTransformRef.current = ctx.getTransform();
+  }, []);
+
   // Cursor: grabbing while a drag is active, grab when hovering a node, default otherwise.
   const cursor = isDragging ? "grabbing" : hoverId ? "grab" : "default";
 
@@ -198,8 +273,6 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         nodeLabel={(n) => (n as GraphNode).name}
         linkColor={(l) => {
           const link = l as GraphLink;
-          // Default supply of the link colour comes from the shared helper;
-          // keep this inline so the bundle doesn't pull in more than necessary.
           const t = link.type;
           if (t === "REPORTS_TO" || t === "MANAGES" || t === "WORKS_IN" || t === "OWNS") {
             return "hsl(215, 70%, 45%)";
@@ -213,15 +286,13 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         linkDirectionalArrowRelPos={1}
         cooldownTicks={300}
         cooldownTime={8000}
-        d3VelocityDecay={0.85}
-        d3AlphaMin={0}
         enableNodeDrag={true}
         {...interactionProps}
         onNodeDrag={handleDrag}
         onNodeDragEnd={handleDragEnd}
-        onNodeClick={handleClick}
         onNodeHover={handleHover}
         onNodeRightClick={handleNodeRightClick}
+        onRenderFramePost={handleRenderFramePost}
       />
     </div>
   );
