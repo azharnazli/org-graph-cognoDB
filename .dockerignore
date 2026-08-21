@@ -1,0 +1,22 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+dist
+**/dist
+
+# Secrets never enter the build context (injected at runtime via env_file).
+*.env
+!**/*.env.example
+
+# Local/private files not needed in an image.
+.agents
+.claude
+.opencode
+.pi
+.impeccable
+PRD.md
+PRD.mmd
+PRODUCT.md
+CognoDB-Assignment-2-Application.docx.pdf
+nav-*.png

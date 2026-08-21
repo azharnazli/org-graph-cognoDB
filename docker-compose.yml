@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - backend/.env
+    environment:
+      NODE_ENV: production
+      # Browser origin is the nginx container (same-origin /api proxy). Update
+      # this if the app is deployed behind a real hostname.
+      CORS_ORIGIN: http://localhost:8080
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
