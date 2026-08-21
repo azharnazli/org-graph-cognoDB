@@ -17,8 +17,8 @@ A graph database answers these directly with variable-length path traversals, wh
 This app lets a non-technical user explore that graph through:
 
 - A **dashboard** with counts and a per-region supplier breakdown
-- **People, Departments, Projects, Products, Suppliers, Locations** browse pages with list + detail views and cross-links
-- A **Graph Explorer** that runs read-only Cypher queries against the graph
+- **People, Departments, Projects, Products, Suppliers, Locations** browse pages with list + detail views, full CRUD, and cross-links
+- A **Graph Explorer** with three preset views (org chart, supply chain, full graph) — click any node to inspect its properties and jump to its detail page
 - A **global search API** across all node labels (powering search across the app)
 
 ---
@@ -100,8 +100,8 @@ org-graph/
 │   ├── src/
 │   │   ├── server.ts             # Express bootstrap + route wiring
 │   │   ├── db/driver.ts          # neo4j-driver singleton
-│   │   ├── routes/               # one router per resource + dashboard + query
-│   │   └── lib/                  # pagination + read-only Cypher guard
+│   │   ├── routes/               # one router per resource + health, search, dashboard, graph
+│   │   └── lib/                  # pagination + request validation
 │   ├── scripts/
 │   │   ├── seed.ts               # wipes + loads seed data
 │   │   ├── wipe.ts               # DETACH DELETE the whole graph
@@ -111,11 +111,13 @@ org-graph/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── ui/               # hand-written shadcn primitives
-│   │   │   ├── common/           # shared building blocks (DataTable, Pagination, ...)
-│   │   │   └── layout/           # AppLayout + NavBar
-│   │   ├── pages/                # 14 routed pages
-│   │   ├── hooks/                # react-query hooks
-│   │   ├── lib/                  # format, list-state, detail-hooks
+│   │   │   ├── common/           # DataTable, DataState, Pagination, SearchBar, ...
+│   │   │   ├── forms/            # one dialog per entity (create / edit)
+│   │   │   ├── graph/            # force-directed GraphCanvas
+│   │   │   └── layout/           # AppLayout + Sidebar
+│   │   ├── pages/                # 15 routed pages
+│   │   ├── hooks/                # useGraph, useHealth
+│   │   ├── lib/                  # list-state, detail-hooks, mutations, format, graph-colors
 │   │   ├── api/client.ts         # axios instance
 │   │   ├── App.tsx               # router + routes
 │   │   └── main.tsx              # QueryClientProvider + bootstrap
@@ -146,8 +148,8 @@ org-graph/
 ### 6.3 Clone & install
 
 ```bash
-git clone https://github.com/<your-username>/org-graph.git
-cd org-graph
+git clone https://github.com/azharnazli/org-graph-cognoDB.git
+cd org-graph-cognoDB
 pnpm install
 ```
 
@@ -198,23 +200,30 @@ pnpm --filter @org-graph/frontend dev
 
 ## 7. API
 
-All endpoints live under `/api`. All list endpoints accept `page`, `pageSize`, and per-resource `sort` + `order` query params (whitelisted fields, never interpolated into Cypher).
+All endpoints live under `/api`. Every resource exposes full CRUD. List endpoints accept `page`, `pageSize`, and per-resource `sort` + `order` query params (whitelisted fields, never interpolated into Cypher). All Cypher uses parameterised queries.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | DB connection status + node count |
 | GET | `/api/dashboard` | Aggregate counts + suppliers per region |
 | GET | `/api/search?q=<term>` | Global cross-label search (min 2 chars) |
-| GET | `/api/people` · `/api/people/:id` | List + detail |
+| GET / POST | `/api/people` | List + create |
+| GET / PUT / DELETE | `/api/people/:id` | Detail + update + delete |
 | GET | `/api/people/:id/reports-chain?to=<id>` | Shortest path via `REPORTS_TO` (multi-hop) |
-| GET | `/api/departments` · `/api/departments/:id` | List + detail |
-| GET | `/api/projects` · `/api/projects/:id` | List + detail; `?status=active\|planned\|done` |
-| GET | `/api/products` · `/api/products/:id` | List + detail |
-| GET | `/api/suppliers` · `/api/suppliers/:id` | List + detail |
-| GET | `/api/locations` | List (no detail view) |
-| POST | `/api/query` | Run arbitrary read-only Cypher (`{ cypher, params }`) |
-
-The `/api/query` endpoint runs a guard that strips comments and rejects any query containing `CREATE`, `MERGE`, `DELETE`, `DETACH`, `SET`, `REMOVE`, `DROP`, `ALTER`, `GRANT`, `REVOKE`, `CALL dbms`, `CALL db.`, `LOAD CSV`, or `USING PERIODIC`. Queries must contain `MATCH` and `RETURN`.
+| GET / POST | `/api/departments` | List + create |
+| GET / PUT / DELETE | `/api/departments/:id` | Detail + update + delete |
+| GET / POST | `/api/projects` | List + create; `?status=planned\|active\|done` |
+| GET / PUT / DELETE | `/api/projects/:id` | Detail + update + delete |
+| GET | `/api/projects/:id/managers` | Manager ids for a project |
+| GET / POST | `/api/products` | List + create |
+| GET / PUT / DELETE | `/api/products/:id` | Detail + update + delete |
+| GET / POST | `/api/suppliers` | List + create |
+| GET / PUT / DELETE | `/api/suppliers/:id` | Detail + update + delete |
+| GET / POST | `/api/locations` | List + create |
+| GET / PUT / DELETE | `/api/locations/:id` | Detail + update + delete |
+| GET | `/api/roles` | List the 5 role levels |
+| GET | `/api/graph?view=org\|supply\|all` | Nodes + links for a graph view |
+| GET | `/api/graph?view=neighborhood&node=<id>&depth=<n>` | Neighborhood around one node (depth 1–4) |
 
 ---
 
@@ -223,13 +232,13 @@ The `/api/query` endpoint runs a guard that strips comments and rejects any quer
 | Path | Page | Purpose |
 |---|---|---|
 | `/` | Dashboard | Aggregate counts + suppliers per region |
-| `/people` · `/people/:id` | People | Searchable list; detail with profile, manager, direct reports, projects, and a "find reports chain" multi-hop picker |
+| `/people` · `/people/:id` | People | Searchable list + CRUD; detail with profile, manager, direct reports, projects, and a "find reports chain" multi-hop picker |
 | `/departments` · `/departments/:id` | Departments | People + projects per dept, with location |
 | `/projects` · `/projects/:id` | Projects | Status filter; detail with managers, dept, products |
 | `/products` · `/products/:id` | Products | Suppliers + projects |
 | `/suppliers` · `/suppliers/:id` | Suppliers | Products + location |
-| `/locations` | Locations | List only |
-| `/explorer` | Graph Explorer | Read-only Cypher runner with 5 preset queries |
+| `/locations` · `/locations/:id` | Locations | List + detail |
+| `/explorer` | Graph Explorer | Org chart, supply chain, or full-graph view; click a node to inspect properties and open its page |
 | any other path | 404 | Catch-all |
 
-UI uses hand-written shadcn/ui primitives with explicit **loading** (Skeleton), **empty** (EmptyState), and **error** (Alert) states. The nav bar shows a live DB connection indicator that polls `/api/health` every 10 seconds.
+Detail pages render a **neighborhood graph** around the current entity. UI uses hand-written shadcn/ui primitives with explicit **loading** (Skeleton), **empty** (DataState), and **error** (Alert) states. The app header shows a live DB connection indicator that polls `/api/health` every 10 seconds.
