@@ -1,36 +1,39 @@
-import { useHealth } from "./hooks/useHealth";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AppLayout } from "./components/layout/AppLayout";
+import { DashboardPage } from "./pages/Dashboard";
+import { PeopleListPage } from "./pages/PeopleList";
+import { PersonDetailPage } from "./pages/PersonDetail";
+import { DepartmentsListPage } from "./pages/DepartmentsList";
+import { DepartmentDetailPage } from "./pages/DepartmentDetail";
+import { ProjectsListPage } from "./pages/ProjectsList";
+import { ProjectDetailPage } from "./pages/ProjectDetail";
+import { ProductsListPage } from "./pages/ProductsList";
+import { ProductDetailPage } from "./pages/ProductDetail";
+import { SuppliersListPage } from "./pages/SuppliersList";
+import { SupplierDetailPage } from "./pages/SupplierDetail";
+import { LocationsListPage } from "./pages/LocationsList";
+import { GraphExplorerPage } from "./pages/GraphExplorer";
 
 export default function App() {
-  const { data, isLoading, isError, error } = useHealth();
-
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 gap-6">
-      <h1 className="text-3xl font-bold">org-graph</h1>
-      <p className="text-muted-foreground">CognoDB + Express + React (TS strict)</p>
-
-      <section className="w-full max-w-md rounded-lg border bg-card text-card-foreground p-6 shadow-sm">
-        <h2 className="text-lg font-semibold mb-3">Backend health</h2>
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Checking…</p>
-        ) : isError ? (
-          <p className="text-sm text-destructive">Error: {String(error)}</p>
-        ) : data ? (
-          <dl className="text-sm space-y-1">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">status</dt>
-              <dd className="font-mono">{data.status}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">database</dt>
-              <dd className="font-mono">{data.database}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">node count</dt>
-              <dd className="font-mono">{data.nodeCount}</dd>
-            </div>
-          </dl>
-        ) : null}
-      </section>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="people" element={<PeopleListPage />} />
+          <Route path="people/:id" element={<PersonDetailPage />} />
+          <Route path="departments" element={<DepartmentsListPage />} />
+          <Route path="departments/:id" element={<DepartmentDetailPage />} />
+          <Route path="projects" element={<ProjectsListPage />} />
+          <Route path="projects/:id" element={<ProjectDetailPage />} />
+          <Route path="products" element={<ProductsListPage />} />
+          <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="suppliers" element={<SuppliersListPage />} />
+          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+          <Route path="locations" element={<LocationsListPage />} />
+          <Route path="explorer" element={<GraphExplorerPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
