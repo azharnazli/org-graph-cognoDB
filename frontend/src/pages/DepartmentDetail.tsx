@@ -1,16 +1,28 @@
-import { Link, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDepartment } from "@/lib/detail-hooks";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState, ErrorState } from "@/components/common/DataState";
+import { StationDot } from "@/components/common/StationDot";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EntityGraph } from "@/components/graph/EntityGraph";
+import { DepartmentDialog } from "@/components/forms/DepartmentDialog";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
+import { mutations } from "@/lib/mutations";
+import { entityAccent } from "@/lib/graph-colors";
 import { projectStatusVariant, PROJECT_STATUS_LABEL } from "@/lib/format";
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const departmentId = id ?? "";
   const { data, isLoading, error } = useDepartment(departmentId);
+
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const del = mutations.department.delete();
 
   const detail = data?.data;
 
@@ -20,12 +32,26 @@ export function DepartmentDetailPage() {
 
   return (
     <>
-      <PageHeader title={detail.name} description={`Cost center ${detail.costCenter}`} />
+      <PageHeader
+        title={detail.name}
+        description={`Cost center ${detail.costCenter}`}
+        accent={entityAccent("Department")}
+      >
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          Edit
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+          Delete
+        </Button>
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Local graph</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <StationDot color={entityAccent("Department")} />
+              Local graph
+            </CardTitle>
             <CardDescription>People, projects, and location — click any node to navigate.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -61,7 +87,8 @@ export function DepartmentDetailPage() {
             ) : (
               <ul className="space-y-1 text-sm">
                 {detail.people.map((p) => (
-                  <li key={p.id}>
+                  <li key={p.id} className="flex items-center gap-2">
+                    <StationDot color={entityAccent("Person")} />
                     <Link className="text-primary hover:underline" to={`/people/${p.id}`}>
                       {p.name}
                     </Link>
@@ -85,6 +112,7 @@ export function DepartmentDetailPage() {
               <ul className="space-y-1 text-sm">
                 {detail.projects.map((p) => (
                   <li key={p.id} className="flex items-center gap-2">
+                    <StationDot color={entityAccent("Project")} />
                     <Link className="text-primary hover:underline" to={`/projects/${p.id}`}>
                       {p.name}
                     </Link>
@@ -98,6 +126,22 @@ export function DepartmentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <DepartmentDialog
+        open={editing}
+        onOpenChange={setEditing}
+        {...(detail ? { initial: detail } : {})}
+      />
+      <ConfirmDeleteDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete ${detail.name}?`}
+        description="This removes the department and any attached relationships (people working here, projects owned). This cannot be undone."
+        isDeleting={del.isPending}
+        onConfirm={() => {
+          del.mutateAsync(detail.id).then(() => navigate("/departments"));
+        }}
+      />
     </>
   );
 }

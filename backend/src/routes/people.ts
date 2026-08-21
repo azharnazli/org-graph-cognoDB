@@ -1,7 +1,15 @@
 import { Router } from "express";
-import type { Paginated, Person, PersonDetail } from "@org-graph/shared-types";
+import type {
+  Paginated,
+  Person,
+  PersonDetail,
+  CreatePersonInput,
+  UpdatePersonInput,
+  MutationResult,
+} from "@org-graph/shared-types";
 import { driver } from "../db/driver.js";
 import { parsePagination, parseSorting } from "../lib/pagination.js";
+import { validateCreatePerson, validateUpdatePerson } from "../lib/validate.js";
 
 export const peopleRouter = Router();
 
@@ -82,6 +90,141 @@ peopleRouter.get("/people/:id", async (req, res, next) => {
         return;
       }
       res.json({ data: detail as PersonDetail });
+    } finally {
+      await session.close();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+peopleRouter.post("/people", async (req, res, next) => {
+  try {
+    const input = req.body as CreatePersonInput;
+    const v = validateCreatePerson(input);
+    if (!v.ok) {
+      res.status(400).json({ error: "ValidationError", message: "Invalid input", details: v.errors });
+      return;
+    }
+
+    const session = driver.session({ database: "neo4j" });
+    try {
+      const id = input.id?.trim() || `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+      const cypher = `
+        CREATE (p:Person {id: $id, name: $name, email: $email, title: $title, joinedAt: $joinedAt})
+        WITH p
+        OPTIONAL MATCH (d:Department {id: $departmentId})
+        FOREACH (_ IN CASE WHEN d IS NULL THEN [] ELSE [1] END | MERGE (p)-[:WORKS_IN]->(d))
+        WITH p
+        OPTIONAL MATCH (r:Role {id: $roleId})
+        FOREACH (_ IN CASE WHEN r IS NULL THEN [] ELSE [1] END | MERGE (p)-[:HAS_ROLE]->(r))
+        WITH p
+        OPTIONAL MATCH (mgr:Person {id: $reportsToId})
+        FOREACH (_ IN CASE WHEN mgr IS NULL THEN [] ELSE [1] END | MERGE (p)-[:REPORTS_TO]->(mgr))
+        RETURN p { .id, .name, .email, .title, joinedAt: toString(p.joinedAt) } AS person`;
+
+      const result = await session.run(cypher, {
+        id,
+        name: input.name,
+        email: input.email,
+        title: input.title,
+        joinedAt: input.joinedAt,
+        departmentId: input.departmentId ?? null,
+        roleId: input.roleId ?? null,
+        reportsToId: input.reportsToId ?? null,
+      });
+
+      const person = result.records[0]?.get("person") as Person | undefined;
+      if (!person) {
+        res.status(500).json({ error: "InternalServerError", message: "Create failed" });
+        return;
+      }
+      res.status(201).json({ data: person } satisfies MutationResult<Person>);
+    } finally {
+      await session.close();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+peopleRouter.put("/people/:id", async (req, res, next) => {
+  try {
+    const id = req.params["id"];
+    if (!id) {
+      res.status(400).json({ error: "BadRequest", message: "Missing id" });
+      return;
+    }
+    const input = req.body as UpdatePersonInput;
+    const v = validateUpdatePerson(input);
+    if (!v.ok) {
+      res.status(400).json({ error: "ValidationError", message: "Invalid input", details: v.errors });
+      return;
+    }
+
+    const session = driver.session({ database: "neo4j" });
+    try {
+      // Update only the properties the client sent; relationship wiring stays
+      // untouched (relationship edits are out of scope of this endpoint).
+      const result = await session.run(
+        `MATCH (p:Person {id: $id})
+         SET p.name = coalesce($name, p.name),
+             p.email = coalesce($email, p.email),
+             p.title = coalesce($title, p.title),
+             p.joinedAt = coalesce($joinedAt, p.joinedAt)
+         RETURN p { .id, .name, .email, .title, joinedAt: toString(p.joinedAt) } AS person`,
+        {
+          id,
+          name: input.name ?? null,
+          email: input.email ?? null,
+          title: input.title ?? null,
+          joinedAt: input.joinedAt ?? null,
+        },
+      );
+
+      const person = result.records[0]?.get("person") as Person | undefined;
+      if (!person) {
+        res.status(404).json({ error: "NotFound", message: "Person not found" });
+        return;
+      }
+      res.json({ data: person } satisfies MutationResult<Person>);
+    } finally {
+      await session.close();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+peopleRouter.delete("/people/:id", async (req, res, next) => {
+  try {
+    const id = req.params["id"];
+    if (!id) {
+      res.status(400).json({ error: "BadRequest", message: "Missing id" });
+      return;
+    }
+
+    const session = driver.session({ database: "neo4j" });
+    try {
+      // DETACH DELETE removes the node + every relationship. Reports/managers
+      // pointing at this person get cleaned up; sub-tree reports lose their
+      // REPORTS_TO edge (intentional — they remain in the graph unrooted).
+      const result = await session.run(
+        `MATCH (p:Person {id: $id})
+         OPTIONAL MATCH (p)-[outR]-() WHERE type(outR) IN ['WORKS_IN','HAS_ROLE','REPORTS_TO','MANAGES']
+         OPTIONAL MATCH ()-[inR]->(p) WHERE type(inR) IN ['REPORTS_TO','MANAGES']
+         WITH p, count(DISTINCT outR) AS outCount, count(DISTINCT inR) AS inCount
+         DETACH DELETE p
+         RETURN outCount, inCount`,
+        { id },
+      );
+      const rec = result.records[0];
+      if (!rec) {
+        res.status(404).json({ error: "NotFound", message: "Person not found" });
+        return;
+      }
+      res.json({ data: { deleted: true, removedOutgoingRelationships: rec.get("outCount")?.toNumber?.() ?? 0, removedIncomingRelationships: rec.get("inCount")?.toNumber?.() ?? 0 } });
     } finally {
       await session.close();
     }

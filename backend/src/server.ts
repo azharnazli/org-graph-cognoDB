@@ -9,9 +9,9 @@ import { projectsRouter } from "./routes/projects.js";
 import { productsRouter } from "./routes/products.js";
 import { suppliersRouter } from "./routes/suppliers.js";
 import { locationsRouter } from "./routes/locations.js";
+import { rolesRouter } from "./routes/roles.js";
 import { searchRouter } from "./routes/search.js";
 import { dashboardRouter } from "./routes/dashboard.js";
-import { queryRouter } from "./routes/query.js";
 import { graphRouter } from "./routes/graph.js";
 import { verifyConnection, closeDriver } from "./db/driver.js";
 
@@ -35,9 +35,9 @@ app.use("/api", projectsRouter);
 app.use("/api", productsRouter);
 app.use("/api", suppliersRouter);
 app.use("/api", locationsRouter);
+app.use("/api", rolesRouter);
 app.use("/api", searchRouter);
 app.use("/api", dashboardRouter);
-app.use("/api", queryRouter);
 app.use("/api", graphRouter);
 
 // 404

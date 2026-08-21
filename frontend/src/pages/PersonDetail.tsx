@@ -1,22 +1,32 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { usePerson, usePersonReportsChain } from "@/lib/detail-hooks";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState, ErrorState } from "@/components/common/DataState";
+import { StationDot } from "@/components/common/StationDot";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityGraph } from "@/components/graph/EntityGraph";
+import { PersonDialog } from "@/components/forms/PersonDialog";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
+import { mutations } from "@/lib/mutations";
+import { entityAccent } from "@/lib/graph-colors";
 import { projectStatusVariant, PROJECT_STATUS_LABEL, ROLE_LEVEL_LABEL, roleLevelVariant, formatDate } from "@/lib/format";
 
 export function PersonDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data, isLoading, error } = usePerson(id);
 
   const [toId, setToId] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
   const chain = usePersonReportsChain(id, targetId);
+
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const del = mutations.person.delete();
 
   const detail = data?.data;
 
@@ -26,14 +36,27 @@ export function PersonDetailPage() {
 
   return (
     <>
-      <PageHeader title={detail.name} description={detail.title}>
+      <PageHeader
+        title={detail.name}
+        description={detail.title}
+        accent={entityAccent("Person")}
+      >
         <Badge variant="outline">{detail.email}</Badge>
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          Edit
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+          Delete
+        </Button>
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Local graph</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <StationDot color={entityAccent("Person")} />
+              Local graph
+            </CardTitle>
             <CardDescription>Direct connections in the graph — click any node to navigate.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -84,7 +107,8 @@ export function PersonDetailPage() {
             ) : (
               <ul className="space-y-1 text-sm">
                 {detail.directReports.map((r) => (
-                  <li key={r.id}>
+                  <li key={r.id} className="flex items-center gap-2">
+                    <StationDot color={entityAccent("Person")} />
                     <Link className="text-primary hover:underline" to={`/people/${r.id}`}>
                       {r.name}
                     </Link>
@@ -108,6 +132,7 @@ export function PersonDetailPage() {
               <ul className="space-y-1 text-sm">
                 {detail.projects.map((p) => (
                   <li key={p.id} className="flex items-center gap-2">
+                    <StationDot color={entityAccent("Project")} />
                     <Link className="text-primary hover:underline" to={`/projects/${p.id}`}>
                       {p.name}
                     </Link>
@@ -144,6 +169,22 @@ export function PersonDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <PersonDialog
+        open={editing}
+        onOpenChange={setEditing}
+        {...(detail ? { initial: detail } : {})}
+      />
+      <ConfirmDeleteDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete ${detail.name}?`}
+        description="This removes the person and any attached relationships (REPORTS_TO, WORKS_IN, HAS_ROLE, MANAGES). This cannot be undone."
+        isDeleting={del.isPending}
+        onConfirm={() => {
+          del.mutateAsync(detail.id).then(() => navigate("/people"));
+        }}
+      />
     </>
   );
 }
@@ -210,6 +251,7 @@ function ChainResult({
       <ol className="flex flex-wrap items-center gap-2">
         {chain.map((node, i) => (
           <li key={node.id} className="flex items-center gap-2">
+            <StationDot color={entityAccent("Person")} />
             <Link className="text-primary hover:underline" to={`/people/${node.id}`}>
               {node.name}
             </Link>

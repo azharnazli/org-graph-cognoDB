@@ -5,8 +5,13 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/DataState";
+import { StationDot } from "@/components/common/StationDot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProjectDialog } from "@/components/forms/ProjectDialog";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
+import { mutations } from "@/lib/mutations";
+import { entityAccent } from "@/lib/graph-colors";
 import { projectStatusVariant, PROJECT_STATUS_LABEL } from "@/lib/format";
 import type { Project, ProjectStatus } from "@org-graph/shared-types";
 
@@ -20,13 +25,43 @@ export function ProjectsListPage() {
 
   const { data, isLoading, error } = useProjects({ page, pageSize, ...(status ? { status } : {}) });
 
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState<Project | null>(null);
+  const del = mutations.project.delete();
+
+  const onConfirmDelete = () => {
+    if (!deleting) return;
+    del.mutateAsync(deleting.id).then(() => setDeleting(null));
+  };
+
   const columns: Column<Project>[] = [
-    { key: "name", header: "Name", render: (p) => <span className="font-medium">{p.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      render: (p) => (
+        <span className="flex items-center gap-2">
+          <StationDot color={entityAccent("Project")} />
+          <span className="font-medium">{p.name}</span>
+        </span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
       render: (p) => (
         <Badge variant={projectStatusVariant(p.status)}>{PROJECT_STATUS_LABEL[p.status]}</Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      className: "w-32 text-right",
+      render: (p) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>Edit</Button>
+          <Button size="sm" variant="ghost" onClick={() => setDeleting(p)}>Delete</Button>
+        </div>
       ),
     },
   ];
@@ -36,7 +71,10 @@ export function ProjectsListPage() {
       <PageHeader
         title="Projects"
         description={`${data?.total ?? 0} projects${status ? ` (${PROJECT_STATUS_LABEL[status]})` : ""}`}
-      />
+        accent={entityAccent("Project")}
+      >
+        <Button onClick={() => setCreating(true)}>+ New</Button>
+      </PageHeader>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button
@@ -80,6 +118,17 @@ export function ProjectsListPage() {
           />
         </>
       ) : null}
+
+      <ProjectDialog open={creating} onOpenChange={setCreating} />
+      <ProjectDialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)} {...(editing ? { initial: editing } : {})} />
+      <ConfirmDeleteDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete ${deleting?.name ?? "project"}?`}
+        description="This removes the project and its USES/MANAGES relationships. This cannot be undone."
+        isDeleting={del.isPending}
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
 }

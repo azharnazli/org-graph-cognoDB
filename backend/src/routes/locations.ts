@@ -1,7 +1,17 @@
 import { Router } from "express";
-import type { Paginated, Location, LocationDetail, Department, Supplier } from "@org-graph/shared-types";
+import type {
+  Paginated,
+  Location,
+  LocationDetail,
+  Department,
+  Supplier,
+  CreateLocationInput,
+  UpdateLocationInput,
+  MutationResult,
+} from "@org-graph/shared-types";
 import { driver } from "../db/driver.js";
 import { parsePagination, parseSorting } from "../lib/pagination.js";
+import { validateCreateLocation, validateUpdateLocation } from "../lib/validate.js";
 
 export const locationsRouter = Router();
 
@@ -72,6 +82,102 @@ locationsRouter.get("/locations/:id", async (req, res, next) => {
         departments: rec.get("departments") as Department[],
       };
       res.json({ data });
+    } finally {
+      await session.close();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+locationsRouter.post("/locations", async (req, res, next) => {
+  try {
+    const input = req.body as CreateLocationInput;
+    const v = validateCreateLocation(input);
+    if (!v.ok) {
+      res.status(400).json({ error: "ValidationError", message: "Invalid input", details: v.errors });
+      return;
+    }
+    const session = driver.session({ database: "neo4j" });
+    try {
+      const id = input.id?.trim() || `loc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const result = await session.run(
+        `CREATE (l:Location {id: $id, city: $city, country: $country, region: $region})
+         RETURN l { .id, .city, .country, .region } AS location`,
+        { id, city: input.city, country: input.country, region: input.region },
+      );
+      const location = result.records[0]?.get("location") as Location | undefined;
+      if (!location) {
+        res.status(500).json({ error: "InternalServerError", message: "Create failed" });
+        return;
+      }
+      res.status(201).json({ data: location } satisfies MutationResult<Location>);
+    } finally {
+      await session.close();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+locationsRouter.put("/locations/:id", async (req, res, next) => {
+  try {
+    const id = req.params["id"];
+    if (!id) {
+      res.status(400).json({ error: "BadRequest", message: "Missing id" });
+      return;
+    }
+    const input = req.body as UpdateLocationInput;
+    const v = validateUpdateLocation(input);
+    if (!v.ok) {
+      res.status(400).json({ error: "ValidationError", message: "Invalid input", details: v.errors });
+      return;
+    }
+    const session = driver.session({ database: "neo4j" });
+    try {
+      const result = await session.run(
+        `MATCH (l:Location {id: $id})
+         SET l.city = coalesce($city, l.city),
+             l.country = coalesce($country, l.country),
+             l.region = coalesce($region, l.region)
+         RETURN l { .id, .city, .country, .region } AS location`,
+        { id, city: input.city ?? null, country: input.country ?? null, region: input.region ?? null },
+      );
+      const location = result.records[0]?.get("location") as Location | undefined;
+      if (!location) {
+        res.status(404).json({ error: "NotFound", message: "Location not found" });
+        return;
+      }
+      res.json({ data: location } satisfies MutationResult<Location>);
+    } finally {
+      await session.close();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+locationsRouter.delete("/locations/:id", async (req, res, next) => {
+  try {
+    const id = req.params["id"];
+    if (!id) {
+      res.status(400).json({ error: "BadRequest", message: "Missing id" });
+      return;
+    }
+    const session = driver.session({ database: "neo4j" });
+    try {
+      const result = await session.run(
+        `MATCH (l:Location {id: $id})
+         DETACH DELETE l
+         RETURN count(l) AS deleted`,
+        { id },
+      );
+      const deleted = (result.records[0]?.get("deleted")?.toNumber?.() ?? 0) > 0;
+      if (!deleted) {
+        res.status(404).json({ error: "NotFound", message: "Location not found" });
+        return;
+      }
+      res.json({ data: { deleted: true } });
     } finally {
       await session.close();
     }

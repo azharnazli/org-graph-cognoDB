@@ -6,6 +6,12 @@ import { SearchBar } from "@/components/common/SearchBar";
 import { Pagination } from "@/components/common/Pagination";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/DataState";
+import { StationDot } from "@/components/common/StationDot";
+import { Button } from "@/components/ui/button";
+import { PersonDialog } from "@/components/forms/PersonDialog";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
+import { mutations } from "@/lib/mutations";
+import { entityAccent } from "@/lib/graph-colors";
 import { formatDate } from "@/lib/format";
 import type { Person } from "@org-graph/shared-types";
 
@@ -17,16 +23,61 @@ export function PeopleListPage() {
 
   const { data, isLoading, error } = usePeople({ page, pageSize, q });
 
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Person | null>(null);
+  const [deleting, setDeleting] = useState<Person | null>(null);
+  const del = mutations.person.delete();
+
+  const onConfirmDelete = () => {
+    if (!deleting) return;
+    del.mutateAsync(deleting.id).then(() => {
+      setDeleting(null);
+    });
+  };
+
   const columns: Column<Person>[] = [
-    { key: "name", header: "Name", render: (p) => <span className="font-medium">{p.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      render: (p) => (
+        <span className="flex items-center gap-2">
+          <StationDot color={entityAccent("Person")} />
+          <span className="font-medium">{p.name}</span>
+        </span>
+      ),
+    },
     { key: "title", header: "Title", render: (p) => p.title },
     { key: "email", header: "Email", render: (p) => <span className="text-muted-foreground">{p.email}</span> },
     { key: "joinedAt", header: "Joined", render: (p) => formatDate(p.joinedAt) },
+    {
+      key: "actions",
+      header: "",
+      className: "w-32 text-right",
+      render: (p) => (
+        <div
+          className="flex justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setDeleting(p)}>
+            Delete
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
     <>
-      <PageHeader title="People" description={`${data?.total ?? 0} people in the graph`} />
+      <PageHeader
+        title="People"
+        description={`${data?.total ?? 0} people in the graph`}
+        accent={entityAccent("Person")}
+      >
+        <Button onClick={() => setCreating(true)}>+ New</Button>
+      </PageHeader>
 
       <div className="mb-4 max-w-md">
         <SearchBar value={q} onChange={(next) => { setQ(next); setPage(1); }} placeholder="Search by name or email..." />
@@ -54,6 +105,21 @@ export function PeopleListPage() {
           />
         </>
       ) : null}
+
+      <PersonDialog open={creating} onOpenChange={setCreating} />
+      <PersonDialog
+        open={Boolean(editing)}
+        onOpenChange={(o) => !o && setEditing(null)}
+        {...(editing ? { initial: editing } : {})}
+      />
+      <ConfirmDeleteDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete ${deleting?.name ?? "person"}?`}
+        description="This removes the person and any attached relationships (REPORTS_TO, WORKS_IN, HAS_ROLE, MANAGES). This cannot be undone."
+        isDeleting={del.isPending}
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
 }

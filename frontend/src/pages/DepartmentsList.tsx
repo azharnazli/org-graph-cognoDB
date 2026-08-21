@@ -5,6 +5,12 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/DataState";
+import { StationDot } from "@/components/common/StationDot";
+import { Button } from "@/components/ui/button";
+import { DepartmentDialog } from "@/components/forms/DepartmentDialog";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
+import { mutations } from "@/lib/mutations";
+import { entityAccent } from "@/lib/graph-colors";
 import type { Department } from "@org-graph/shared-types";
 
 export function DepartmentsListPage() {
@@ -14,14 +20,50 @@ export function DepartmentsListPage() {
 
   const { data, isLoading, error } = useDepartments({ page, pageSize });
 
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Department | null>(null);
+  const [deleting, setDeleting] = useState<Department | null>(null);
+  const del = mutations.department.delete();
+
+  const onConfirmDelete = () => {
+    if (!deleting) return;
+    del.mutateAsync(deleting.id).then(() => setDeleting(null));
+  };
+
   const columns: Column<Department>[] = [
-    { key: "name", header: "Name", render: (d) => <span className="font-medium">{d.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      render: (d) => (
+        <span className="flex items-center gap-2">
+          <StationDot color={entityAccent("Department")} />
+          <span className="font-medium">{d.name}</span>
+        </span>
+      ),
+    },
     { key: "costCenter", header: "Cost Center", render: (d) => <span className="text-muted-foreground">{d.costCenter}</span> },
+    {
+      key: "actions",
+      header: "",
+      className: "w-32 text-right",
+      render: (d) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(d)}>Edit</Button>
+          <Button size="sm" variant="ghost" onClick={() => setDeleting(d)}>Delete</Button>
+        </div>
+      ),
+    },
   ];
 
   return (
     <>
-      <PageHeader title="Departments" description={`${data?.total ?? 0} departments`} />
+      <PageHeader
+        title="Departments"
+        description={`${data?.total ?? 0} departments`}
+        accent={entityAccent("Department")}
+      >
+        <Button onClick={() => setCreating(true)}>+ New</Button>
+      </PageHeader>
 
       {isLoading ? (
         <LoadingState />
@@ -45,6 +87,17 @@ export function DepartmentsListPage() {
           />
         </>
       ) : null}
+
+      <DepartmentDialog open={creating} onOpenChange={setCreating} />
+      <DepartmentDialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)} {...(editing ? { initial: editing } : {})} />
+      <ConfirmDeleteDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete ${deleting?.name ?? "department"}?`}
+        description="This removes the department and any attached relationships (people working here, projects owned). This cannot be undone."
+        isDeleting={del.isPending}
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
 }

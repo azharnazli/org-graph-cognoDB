@@ -5,7 +5,13 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { DataTable, type Column } from "@/components/common/DataTable";
 import { LoadingState, ErrorState, EmptyState } from "@/components/common/DataState";
+import { StationDot } from "@/components/common/StationDot";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { SupplierDialog } from "@/components/forms/SupplierDialog";
+import { ConfirmDeleteDialog } from "@/components/common/ConfirmDeleteDialog";
+import { mutations } from "@/lib/mutations";
+import { entityAccent } from "@/lib/graph-colors";
 import { formatRating } from "@/lib/format";
 import type { Supplier } from "@org-graph/shared-types";
 
@@ -23,18 +29,54 @@ export function SuppliersListPage() {
 
   const { data, isLoading, error } = useSuppliers({ page, pageSize });
 
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Supplier | null>(null);
+  const [deleting, setDeleting] = useState<Supplier | null>(null);
+  const del = mutations.supplier.delete();
+
+  const onConfirmDelete = () => {
+    if (!deleting) return;
+    del.mutateAsync(deleting.id).then(() => setDeleting(null));
+  };
+
   const columns: Column<Supplier>[] = [
-    { key: "name", header: "Name", render: (s) => <span className="font-medium">{s.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      render: (s) => (
+        <span className="flex items-center gap-2">
+          <StationDot color={entityAccent("Supplier")} />
+          <span className="font-medium">{s.name}</span>
+        </span>
+      ),
+    },
     {
       key: "rating",
       header: "Rating",
       render: (s) => <Badge variant={ratingVariant(s.rating)}>{formatRating(s.rating)}</Badge>,
     },
+    {
+      key: "actions",
+      header: "",
+      className: "w-32 text-right",
+      render: (s) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(s)}>Edit</Button>
+          <Button size="sm" variant="ghost" onClick={() => setDeleting(s)}>Delete</Button>
+        </div>
+      ),
+    },
   ];
 
   return (
     <>
-      <PageHeader title="Suppliers" description={`${data?.total ?? 0} suppliers`} />
+      <PageHeader
+        title="Suppliers"
+        description={`${data?.total ?? 0} suppliers`}
+        accent={entityAccent("Supplier")}
+      >
+        <Button onClick={() => setCreating(true)}>+ New</Button>
+      </PageHeader>
 
       {isLoading ? (
         <LoadingState />
@@ -58,6 +100,17 @@ export function SuppliersListPage() {
           />
         </>
       ) : null}
+
+      <SupplierDialog open={creating} onOpenChange={setCreating} />
+      <SupplierDialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)} {...(editing ? { initial: editing } : {})} />
+      <ConfirmDeleteDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete ${deleting?.name ?? "supplier"}?`}
+        description="This removes the supplier and any product-supply edges. This cannot be undone."
+        isDeleting={del.isPending}
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
 }

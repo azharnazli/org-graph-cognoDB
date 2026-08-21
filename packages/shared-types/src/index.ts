@@ -105,3 +105,64 @@ export interface HealthResponse {
   database: "connected" | "unreachable";
   nodeCount: number;
 }
+
+// ---------- Mutations (CRUD inputs) ----------
+
+export interface CreatePersonInput {
+  id?: string;
+  name: string;
+  email: string;
+  title: string;
+  joinedAt: string;
+  departmentId?: string | null;
+  roleId?: string | null;
+  reportsToId?: string | null;
+}
+export type UpdatePersonInput = Partial<CreatePersonInput>;
+
+export interface CreateDepartmentInput {
+  id?: string;
+  name: string;
+  costCenter: string;
+  locationId?: string | null;
+}
+export type UpdateDepartmentInput = Partial<CreateDepartmentInput>;
+
+export interface CreateProjectInput {
+  id?: string;
+  name: string;
+  status: ProjectStatus;
+  departmentId?: string | null;
+  managerIds?: string[];
+}
+export type UpdateProjectInput = Partial<Omit<CreateProjectInput, "managerIds">> & {
+  managerIds?: string[];
+};
+
+export interface CreateProductInput {
+  id?: string;
+  name: string;
+  sku: string;
+  category: string;
+}
+export type UpdateProductInput = Partial<CreateProductInput>;
+
+export interface CreateSupplierInput {
+  id?: string;
+  name: string;
+  rating: number;
+  locationId?: string | null;
+}
+export type UpdateSupplierInput = Partial<CreateSupplierInput>;
+
+export interface CreateLocationInput {
+  id?: string;
+  city: string;
+  country: string;
+  region: string;
+}
+export type UpdateLocationInput = Partial<CreateLocationInput>;
+
+export interface MutationResult<T> {
+  data: T;
+}
