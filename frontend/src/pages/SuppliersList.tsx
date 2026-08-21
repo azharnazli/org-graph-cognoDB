@@ -34,26 +34,26 @@ export function SuppliersListPage() {
 
   return (
     <>
-      <PageHeader title="Suppliers" description={`${data?.data.total ?? 0} suppliers`} />
+      <PageHeader title="Suppliers" description={`${data?.total ?? 0} suppliers`} />
 
       {isLoading ? (
         <LoadingState />
       ) : error ? (
         <ErrorState message={error instanceof Error ? error.message : "Unknown error"} />
-      ) : data && data.data.data.length === 0 ? (
+      ) : data && data.data.length === 0 ? (
         <EmptyState message="No suppliers in the graph." />
       ) : data ? (
         <>
           <DataTable
-            rows={data.data.data}
+            rows={data.data}
             columns={columns}
             rowKey={(s) => s.id}
             onRowClick={(s) => navigate(`/suppliers/${s.id}`)}
           />
           <Pagination
-            page={data.data.page}
-            pageSize={data.data.pageSize}
-            total={data.data.total}
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
             onPageChange={setPage}
           />
         </>

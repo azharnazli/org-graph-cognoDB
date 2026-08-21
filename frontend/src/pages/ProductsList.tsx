@@ -22,26 +22,26 @@ export function ProductsListPage() {
 
   return (
     <>
-      <PageHeader title="Products" description={`${data?.data.total ?? 0} products`} />
+      <PageHeader title="Products" description={`${data?.total ?? 0} products`} />
 
       {isLoading ? (
         <LoadingState />
       ) : error ? (
         <ErrorState message={error instanceof Error ? error.message : "Unknown error"} />
-      ) : data && data.data.data.length === 0 ? (
+      ) : data && data.data.length === 0 ? (
         <EmptyState message="No products in the graph." />
       ) : data ? (
         <>
           <DataTable
-            rows={data.data.data}
+            rows={data.data}
             columns={columns}
             rowKey={(p) => p.id}
             onRowClick={(p) => navigate(`/products/${p.id}`)}
           />
           <Pagination
-            page={data.data.page}
-            pageSize={data.data.pageSize}
-            total={data.data.total}
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
             onPageChange={setPage}
           />
         </>

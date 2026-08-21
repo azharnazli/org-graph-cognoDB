@@ -35,7 +35,7 @@ export function ProjectsListPage() {
     <>
       <PageHeader
         title="Projects"
-        description={`${data?.data.total ?? 0} projects${status ? ` (${PROJECT_STATUS_LABEL[status]})` : ""}`}
+        description={`${data?.total ?? 0} projects${status ? ` (${PROJECT_STATUS_LABEL[status]})` : ""}`}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -62,20 +62,20 @@ export function ProjectsListPage() {
         <LoadingState />
       ) : error ? (
         <ErrorState message={error instanceof Error ? error.message : "Unknown error"} />
-      ) : data && data.data.data.length === 0 ? (
+      ) : data && data.data.length === 0 ? (
         <EmptyState message={status ? `No ${PROJECT_STATUS_LABEL[status].toLowerCase()} projects.` : "No projects in the graph."} />
       ) : data ? (
         <>
           <DataTable
-            rows={data.data.data}
+            rows={data.data}
             columns={columns}
             rowKey={(p) => p.id}
             onRowClick={(p) => navigate(`/projects/${p.id}`)}
           />
           <Pagination
-            page={data.data.page}
-            pageSize={data.data.pageSize}
-            total={data.data.total}
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
             onPageChange={setPage}
           />
         </>

@@ -25,25 +25,25 @@ export function LocationsListPage() {
 
   return (
     <>
-      <PageHeader title="Locations" description={`${data?.data.total ?? 0} locations`} />
+      <PageHeader title="Locations" description={`${data?.total ?? 0} locations`} />
 
       {isLoading ? (
         <LoadingState />
       ) : error ? (
         <ErrorState message={error instanceof Error ? error.message : "Unknown error"} />
-      ) : data && data.data.data.length === 0 ? (
+      ) : data && data.data.length === 0 ? (
         <EmptyState message="No locations in the graph." />
       ) : data ? (
         <>
           <DataTable
-            rows={data.data.data}
+            rows={data.data}
             columns={columns}
             rowKey={(l) => l.id}
           />
           <Pagination
-            page={data.data.page}
-            pageSize={data.data.pageSize}
-            total={data.data.total}
+            page={data.page}
+            pageSize={data.pageSize}
+            total={data.total}
             onPageChange={setPage}
           />
         </>
