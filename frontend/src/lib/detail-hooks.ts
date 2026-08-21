@@ -6,6 +6,7 @@ import type {
   ProjectDetail,
   ProductDetail,
   SupplierDetail,
+  LocationDetail,
 } from "@org-graph/shared-types";
 
 interface Envelope<T> {
@@ -79,6 +80,17 @@ export function useSupplier(id: string | null | undefined) {
     enabled: Boolean(id),
     queryFn: async () => {
       const res = await api.get<Envelope<SupplierDetail>>(`/api/suppliers/${id}`);
+      return res.data;
+    },
+  });
+}
+
+export function useLocation(id: string | null | undefined) {
+  return useQuery<Envelope<LocationDetail>>({
+    queryKey: ["location", id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const res = await api.get<Envelope<LocationDetail>>(`/api/locations/${id}`);
       return res.data;
     },
   });

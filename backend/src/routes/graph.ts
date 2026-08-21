@@ -24,8 +24,8 @@ interface GraphResponse {
 
 const VIEWS: Record<string, { nodeLabels: string[]; relTypes: string[] }> = {
   org: {
-    nodeLabels: ["Person", "Department", "Role"],
-    relTypes: ["REPORTS_TO", "WORKS_IN", "HAS_ROLE", "MANAGES"],
+    nodeLabels: ["Person", "Department"],
+    relTypes: ["REPORTS_TO", "WORKS_IN", "MANAGES"],
   },
   supply: {
     nodeLabels: ["Project", "Product", "Supplier", "Location", "Department"],
@@ -36,6 +36,11 @@ const VIEWS: Record<string, { nodeLabels: string[]; relTypes: string[] }> = {
     relTypes: [],
   },
 };
+
+// Role is a tag-style label (5 fixed values: IC/Mgr/Dir/VP/C-level) shown as
+// an inline badge on PersonDetail. It has no detail page, so we filter it from
+// graph views to keep every visible node navigable.
+const EXCLUDED_LABELS = new Set(["Role"]);
 
 function buildNode(node: { properties: Record<string, unknown>; labels: string[]; identity: unknown }): GraphNode {
   const id = String(node.properties["id"] ?? node.identity);
@@ -52,6 +57,7 @@ function buildNode(node: { properties: Record<string, unknown>; labels: string[]
 }
 
 function pushNode(map: Map<string, GraphNode>, node: { properties: Record<string, unknown>; labels: string[]; identity: unknown }): void {
+  if (EXCLUDED_LABELS.has(String(node.labels?.[0] ?? ""))) return;
   const id = String(node.properties["id"] ?? node.identity);
   if (!map.has(id)) {
     map.set(id, buildNode(node));
@@ -131,7 +137,7 @@ graphRouter.get("/graph", async (req, res, next) => {
       const cfg = VIEWS[view] ?? VIEWS["all"]!;
       let cypher: string;
       if (cfg.nodeLabels.length === 0) {
-        cypher = "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 1500";
+        cypher = "MATCH (n)-[r]->(m) WHERE NOT n:Role AND NOT m:Role RETURN n, r, m LIMIT 1500";
       } else {
         const labels = cfg.nodeLabels.map((l) => `n:${l}`).join(" OR ");
         const labelsM = cfg.nodeLabels.map((l) => `m:${l}`).join(" OR ");

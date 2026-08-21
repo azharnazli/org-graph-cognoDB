@@ -12,6 +12,7 @@ import { ProductDetailPage } from "./pages/ProductDetail";
 import { SuppliersListPage } from "./pages/SuppliersList";
 import { SupplierDetailPage } from "./pages/SupplierDetail";
 import { LocationsListPage } from "./pages/LocationsList";
+import { LocationDetailPage } from "./pages/LocationDetail";
 import { GraphExplorerPage } from "./pages/GraphExplorer";
 import { NotFoundPage } from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="suppliers" element={<SuppliersListPage />} />
           <Route path="suppliers/:id" element={<SupplierDetailPage />} />
           <Route path="locations" element={<LocationsListPage />} />
+          <Route path="locations/:id" element={<LocationDetailPage />} />
           <Route path="explorer" element={<GraphExplorerPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

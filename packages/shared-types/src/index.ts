@@ -89,6 +89,11 @@ export interface SupplierDetail extends Supplier {
   products: Product[];
 }
 
+export interface LocationDetail extends Location {
+  suppliers: Supplier[];
+  departments: Department[];
+}
+
 export interface ApiError {
   error: string;
   message: string;
