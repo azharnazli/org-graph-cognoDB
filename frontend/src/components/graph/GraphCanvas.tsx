@@ -158,6 +158,17 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     [hoverId],
   );
 
+  // react-force-graph-2d defaults `onNodeDragEnd` to clearing node.fx/fy,
+  // which un-pins the node and lets the simulation snap it back to its
+  // computed position — that's why dragged nodes used to spring back. Pin
+  // permanently on drop instead.
+  const handleDragEnd = useCallback((raw: object) => {
+    const node = raw as GraphNode & { x?: number; y?: number; fx: number | undefined; fy: number | undefined };
+    if (node.x === undefined || node.y === undefined) return;
+    node.fx = node.x;
+    node.fy = node.y;
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -182,7 +193,8 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         cooldownTime={2000}
         d3VelocityDecay={0.85}
         d3AlphaMin={0}
-        enableNodeDrag={false}
+        enableNodeDrag={true}
+        onNodeDragEnd={handleDragEnd}
         onNodeClick={handleClick}
         onNodeHover={handleHover}
         nodeCanvasObject={nodePaint}
