@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ForceGraph2D, {
   type ForceGraphMethods,
@@ -50,10 +50,17 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     return () => ro.disconnect();
   }, [height]);
 
-  const graphData = {
-    nodes: nodes.map((n) => ({ ...n })),
-    links: links.map((l) => ({ ...l })),
-  };
+  // react-force-graph-2d re-initialises the d3 simulation every time the
+  // `graphData` reference changes. Without this memo, every hover/select
+  // re-render rebuilds the object, re-heats the simulation, and the layout
+  // never settles — nodes visibly drift under the cursor.
+  const graphData = useMemo(
+    () => ({
+      nodes: nodes.map((n) => ({ ...n })),
+      links: links.map((l) => ({ ...l })),
+    }),
+    [nodes, links],
+  );
 
   const hoverNeighbors = useMemo(() => {
     if (!hoverId) return null;
@@ -67,30 +74,89 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     return ids;
   }, [hoverId, links]);
 
-  const handleClick = (node: GraphNode): void => {
-    if (onNodeClick) {
-      onNodeClick(node.id);
-      return;
-    }
-    const path = LABEL_TO_PATH[node.label];
-    if (path) navigate(`${path}/${node.id}`);
-  };
+  const handleClick = useCallback(
+    (node: GraphNode): void => {
+      if (onNodeClick) {
+        onNodeClick(node.id);
+        return;
+      }
+      const path = LABEL_TO_PATH[node.label];
+      if (path) navigate(`${path}/${node.id}`);
+    },
+    [navigate, onNodeClick],
+  );
+
+  const handleHover = useCallback((n: GraphNode | null) => {
+    setHoverId(n ? n.id : null);
+  }, []);
 
   // nodeOpacity / linkOpacity are valid runtime props but missing from the
   // shipped d.ts, so carry them through the typed prop surface.
-  const opacityProps = {
-    nodeOpacity: (n: GraphNode) =>
-      hoverNeighbors === null ? 1 : hoverNeighbors.has(n.id) ? 1 : 0.22,
-    linkOpacity: (l: GraphLink) => {
-      if (hoverId === null) return 0.85;
-      const touches =
-        l.source === hoverId ||
-        l.target === hoverId ||
-        (l.source as unknown as GraphNode)?.id === hoverId ||
-        (l.target as unknown as GraphNode)?.id === hoverId;
-      return touches ? 1 : 0.15;
+  const opacityProps = useMemo(
+    () =>
+      ({
+        nodeOpacity: (n: GraphNode) =>
+          hoverNeighbors === null ? 1 : hoverNeighbors.has(n.id) ? 1 : 0.22,
+        linkOpacity: (l: GraphLink) => {
+          if (hoverId === null) return 0.85;
+          const touches =
+            l.source === hoverId ||
+            l.target === hoverId ||
+            (l.source as unknown as GraphNode)?.id === hoverId ||
+            (l.target as unknown as GraphNode)?.id === hoverId;
+          return touches ? 1 : 0.15;
+        },
+      }) as ForceGraphProps<GraphNode, GraphLink>,
+    [hoverNeighbors, hoverId],
+  );
+
+  const nodePaint = useCallback(
+    (raw: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const n = raw as GraphNode & { x?: number; y?: number };
+      const x = n.x ?? 0;
+      const y = n.y ?? 0;
+      const r = 6.5;
+      const isSelected = n.id === selectedId;
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = nodeColor(n);
+      ctx.fill();
+
+      if (isSelected) {
+        ctx.lineWidth = 1.5 / globalScale;
+        ctx.strokeStyle = INK;
+        ctx.beginPath();
+        ctx.arc(x, y, r + 2, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = PAPER;
+        ctx.fillRect(x - r * 0.7, y - 1.5 / globalScale, r * 1.4, 3 / globalScale);
+      }
+
+      if (globalScale >= 1.2 || n.id === hoverId) {
+        const fontSize = 10 / globalScale;
+        ctx.font = `500 ${fontSize}px "IBM Plex Mono", monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillStyle = INK;
+        ctx.fillText(n.name, x, y + r + 3 / globalScale);
+      }
     },
-  } as ForceGraphProps<GraphNode, GraphLink>;
+    [hoverId, selectedId],
+  );
+
+  const linkWidthFn = useCallback(
+    (l: object) => {
+      const link = l as GraphLink;
+      const touches =
+        link.source === hoverId ||
+        link.target === hoverId ||
+        (link.source as unknown as GraphNode)?.id === hoverId ||
+        (link.target as unknown as GraphNode)?.id === hoverId;
+      return touches ? 2.6 : 1.1;
+    },
+    [hoverId],
+  );
 
   return (
     <div
@@ -108,54 +174,18 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         nodeColor={(n) => nodeColor(n as GraphNode)}
         nodeLabel={(n) => (n as GraphNode).name}
         linkColor={(l) => linkColor(l as GraphLink)}
-        linkWidth={(l) => {
-          const link = l as GraphLink;
-          const touches =
-            link.source === hoverId ||
-            link.target === hoverId ||
-            (link.source as unknown as GraphNode)?.id === hoverId ||
-            (link.target as unknown as GraphNode)?.id === hoverId;
-          return touches ? 2.6 : 1.1;
-        }}
+        linkWidth={linkWidthFn}
         {...opacityProps}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         cooldownTicks={120}
-        d3VelocityDecay={0.8}
+        cooldownTime={2000}
+        d3VelocityDecay={0.85}
         d3AlphaMin={0}
-        onNodeClick={(n) => handleClick(n as GraphNode)}
-        onNodeHover={(n) => setHoverId(n ? (n as GraphNode).id : null)}
-        nodeCanvasObject={(node, ctx, globalScale) => {
-          const n = node as GraphNode & { x?: number; y?: number };
-          const x = n.x ?? 0;
-          const y = n.y ?? 0;
-          const r = 6.5;
-          const isSelected = n.id === selectedId;
-
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, 2 * Math.PI);
-          ctx.fillStyle = nodeColor(n);
-          ctx.fill();
-
-          if (isSelected) {
-            ctx.lineWidth = 1.5 / globalScale;
-            ctx.strokeStyle = INK;
-            ctx.beginPath();
-            ctx.arc(x, y, r + 2, 0, 2 * Math.PI);
-            ctx.stroke();
-            ctx.fillStyle = PAPER;
-            ctx.fillRect(x - r * 0.7, y - 1.5 / globalScale, r * 1.4, 3 / globalScale);
-          }
-
-          if (globalScale >= 1.2 || n.id === hoverId) {
-            const fontSize = 10 / globalScale;
-            ctx.font = `500 ${fontSize}px "IBM Plex Mono", monospace`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "top";
-            ctx.fillStyle = INK;
-            ctx.fillText(n.name, x, y + r + 3 / globalScale);
-          }
-        }}
+        enableNodeDrag={false}
+        onNodeClick={handleClick}
+        onNodeHover={handleHover}
+        nodeCanvasObject={nodePaint}
       />
     </div>
   );
