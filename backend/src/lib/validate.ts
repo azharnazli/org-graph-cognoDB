@@ -65,8 +65,13 @@ export function validateCreateProject(input: unknown): ValidationResult {
   if (!isNonEmptyString(p["name"])) errors.push("name is required");
   if (!isString(p["status"]) || !PROJECT_STATUS.has(p["status"]))
     errors.push("status must be one of planned | active | done");
-  if (p["managerIds"] !== undefined && !Array.isArray(p["managerIds"]))
-    errors.push("managerIds must be an array of strings");
+  const managerIds = p["managerIds"];
+  if (
+    managerIds !== undefined &&
+    (!Array.isArray(managerIds) ||
+      !managerIds.every((id) => typeof id === "string" && id.trim().length > 0))
+  )
+    errors.push("managerIds must be an array of non-empty strings");
   return { ok: errors.length === 0, errors };
 }
 export const validateUpdateProject = validateCreateProject;

@@ -75,7 +75,14 @@ graphRouter.get("/graph", async (req, res, next) => {
     try {
       if (view === "neighborhood") {
         const nodeId = String(req.query["node"] ?? "");
-        const depth = Math.min(4, Math.max(1, Number(req.query["depth"] ?? 2)));
+        // Depth is interpolated below — openCypher doesn't accept a parameter in
+        // a variable-length bound — so clamp it to a hard integer in [1, 4]
+        // before it touches the query string. Non-numeric or out-of-range input
+        // falls back to the default depth of 2.
+        const rawDepth = Number(req.query["depth"] ?? 2);
+        const depth = Number.isFinite(rawDepth)
+          ? Math.min(4, Math.max(1, Math.trunc(rawDepth)))
+          : 2;
         if (!nodeId) {
           res.status(400).json({ error: "BadRequest", message: "Missing node id" });
           return;
