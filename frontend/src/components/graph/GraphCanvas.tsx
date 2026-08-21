@@ -63,16 +63,18 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     if (!fg) return;
     const charge = fg.d3Force("charge");
     if (charge && "strength" in charge) {
-      (charge as unknown as { strength: (n: number) => unknown }).strength(-180);
+      (charge as unknown as { strength: (n: number) => unknown }).strength(-450);
     }
     const collide = fg.d3Force("collide");
     if (collide && "radius" in collide) {
-      (collide as unknown as { radius: (n: number) => unknown }).radius(18);
+      (collide as unknown as { radius: (n: number) => unknown }).radius(45);
     }
     const link = fg.d3Force("link");
     if (link && "distance" in link) {
-      (link as unknown as { distance: (n: number) => unknown }).distance(60);
+      (link as unknown as { distance: (n: number) => unknown }).distance(90);
     }
+    // Force the engine to run long enough to actually settle — the default
+    // 2s wasn't enough for dense neighbourhood views.
     fg.d3ReheatSimulation();
   }, [graphDataVersion]);
 
@@ -209,8 +211,8 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         }}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
-        cooldownTicks={120}
-        cooldownTime={2000}
+        cooldownTicks={300}
+        cooldownTime={8000}
         d3VelocityDecay={0.85}
         d3AlphaMin={0}
         enableNodeDrag={true}
