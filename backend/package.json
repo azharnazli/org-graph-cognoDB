@@ -9,7 +9,6 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
     "seed": "tsx scripts/seed.ts",
     "wipe": "tsx scripts/wipe.ts"
   },

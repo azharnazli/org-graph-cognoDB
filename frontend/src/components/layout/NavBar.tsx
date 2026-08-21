@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useHealth } from "@/hooks/useHealth";
 
 interface NavItem {
   to: string;
@@ -19,6 +20,8 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function NavBar() {
+  const health = useHealth();
+
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 items-center gap-6 px-4">
@@ -42,7 +45,37 @@ export function NavBar() {
             </NavLink>
           ))}
         </nav>
+        <HealthIndicator status={health.data?.database} />
       </div>
     </header>
+  );
+}
+
+function HealthIndicator({
+  status,
+}: {
+  status: "connected" | "unreachable" | undefined;
+}) {
+  const label =
+    status === "connected"
+      ? "DB connected"
+      : status === "unreachable"
+        ? "DB unreachable"
+        : "DB checking...";
+  const dotClass =
+    status === "connected"
+      ? "bg-emerald-500"
+      : status === "unreachable"
+        ? "bg-red-500"
+        : "bg-amber-500";
+
+  return (
+    <div
+      className="flex items-center gap-2 text-xs text-muted-foreground"
+      title={label}
+    >
+      <span className={cn("h-2 w-2 rounded-full", dotClass)} aria-hidden />
+      <span className="hidden sm:inline">{label}</span>
+    </div>
   );
 }

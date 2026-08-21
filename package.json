@@ -11,18 +11,13 @@
   "scripts": {
     "dev": "pnpm run --parallel --filter \"./backend\" --filter \"./frontend\" dev",
     "build": "pnpm run --recursive build",
-    "lint": "pnpm run --recursive lint",
     "typecheck": "pnpm run --recursive typecheck",
     "seed": "pnpm --filter @org-graph/backend seed",
     "wipe": "pnpm --filter @org-graph/backend wipe"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
-    "@types/node": "^22.9.0",
-    "prettier": "^3.3.3",
-    "eslint": "^9.14.0",
-    "@typescript-eslint/eslint-plugin": "^8.13.0",
-    "@typescript-eslint/parser": "^8.13.0"
+    "@types/node": "^22.9.0"
   },
   "packageManager": "pnpm@9.1.4"
 }

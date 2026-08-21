@@ -16,18 +16,10 @@ A graph database answers these directly with variable-length path traversals, wh
 
 This app lets a non-technical user explore that graph through:
 
-- A **dashboard** with counts and recent activity
-- **People, Departments, Projects, Products, Suppliers, Locations** browse pages with list + detail views
-- A **Graph Explorer** that runs read-only Cypher queries and renders the result as a visual graph
-- **Global search** across all node labels
-
-> Replace the screenshot blocks below with real screenshots before final submission.
-
-### Screenshots
-
-| Dashboard | Person detail | Graph Explorer |
-|---|---|---|
-| _TODO: dashboard.png_ | _TODO: person-detail.png_ | _TODO: graph-explorer.png_ |
+- A **dashboard** with counts and a per-region supplier breakdown
+- **People, Departments, Projects, Products, Suppliers, Locations** browse pages with list + detail views and cross-links
+- A **Graph Explorer** that runs read-only Cypher queries against the graph
+- A **global search API** across all node labels (powering search across the app)
 
 ---
 
@@ -36,8 +28,8 @@ This app lets a non-technical user explore that graph through:
 This use case fits a graph DB for three concrete reasons:
 
 1. **Variable-length reporting chains.** "Find everyone who ultimately reports up to the CEO" is `MATCH (p:Person)-[:REPORTS_TO*]->(c:Person {title: "CEO"}) RETURN p` — one line. In SQL this is a recursive CTE that's brittle and hard to parameterise.
-2. **Multi-domain joins without a schema rewrite.** Org + supply relationships cross-cut `people`, `products`, and `suppliers`. A graph lets new relationship types (e.g. `AUDITED_BY`) be added without altering a rigid table schema.
-3. **Path-shaped questions.** "Shortest reporting path between two employees" or "common managers of two people" are first-class graph queries — in SQL they're awkward self-joins over an `employees.manager_id` column.
+2. **Multi-domain joins without a schema rewrite.** Org + supply relationships cross-cut `people`, `products`, and `suppliers`. A graph lets new relationship types be added without altering a rigid table schema.
+3. **Path-shaped questions.** "Shortest reporting path between two employees" is a first-class graph query — in SQL it's awkward self-joins over an `employees.manager_id` column.
 
 ---
 
@@ -69,8 +61,8 @@ graph LR
 
 | Label | Properties |
 |---|---|
-| `Person` | `id`, `name`, `email`, `title`, `joined_at` |
-| `Department` | `id`, `name`, `cost_center` |
+| `Person` | `id`, `name`, `email`, `title`, `joinedAt` |
+| `Department` | `id`, `name`, `costCenter` |
 | `Role` | `id`, `level` (IC / Manager / Director / VP / C-level) |
 | `Project` | `id`, `name`, `status` (planned / active / done) |
 | `Product` | `id`, `sku`, `name`, `category` |
@@ -92,10 +84,11 @@ graph LR
 
 ## 4. Tech stack
 
-**Backend** — Node.js · Express · TypeScript (strict) · `neo4j-driver` · Bolt 5.0–5.4 · openCypher
-**Frontend** — React (Vite) · TypeScript (strict) · Tailwind CSS · shadcn/ui · @tanstack/react-query · axios
+**Backend** — Node.js · Express · TypeScript (strict + `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) · `neo4j-driver` · Bolt 5.x · openCypher
 
-**Tooling** — pnpm workspaces · ESLint · Prettier · @typescript-eslint
+**Frontend** — React (Vite) · TypeScript (strict + extras) · Tailwind CSS · hand-written shadcn/ui primitives · @tanstack/react-query · axios · react-router-dom
+
+**Tooling** — pnpm workspaces · `tsx` for backend dev/runtime
 
 ---
 
@@ -105,28 +98,27 @@ graph LR
 org-graph/
 ├── backend/                      # Express + neo4j-driver API
 │   ├── src/
-│   │   ├── server.ts
-│   │   ├── routes/
-│   │   ├── controllers/
-│   │   ├── db/driver.ts
-│   │   ├── queries/              # parameterized Cypher strings
-│   │   └── middleware/
-│   ├── scripts/seed.ts           # loads seed data into CognoDB
-│   ├── tsconfig.json
+│   │   ├── server.ts             # Express bootstrap + route wiring
+│   │   ├── db/driver.ts          # neo4j-driver singleton
+│   │   ├── routes/               # one router per resource + dashboard + query
+│   │   └── lib/                  # pagination + read-only Cypher guard
+│   ├── scripts/
+│   │   ├── seed.ts               # wipes + loads seed data
+│   │   ├── wipe.ts               # DETACH DELETE the whole graph
+│   │   └── data.ts               # deterministic seed fixtures
 │   └── package.json
 ├── frontend/                     # React SPA (Vite)
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── ui/               # shadcn/ui components
-│   │   │   └── ...
-│   │   ├── pages/
-│   │   ├── api/                  # axios clients per resource
+│   │   │   ├── ui/               # hand-written shadcn primitives
+│   │   │   ├── common/           # shared building blocks (DataTable, Pagination, ...)
+│   │   │   └── layout/           # AppLayout + NavBar
+│   │   ├── pages/                # 14 routed pages
 │   │   ├── hooks/                # react-query hooks
-│   │   ├── types/
-│   │   ├── lib/
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── tsconfig.json
+│   │   ├── lib/                  # format, list-state, detail-hooks
+│   │   ├── api/client.ts         # axios instance
+│   │   ├── App.tsx               # router + routes
+│   │   └── main.tsx              # QueryClientProvider + bootstrap
 │   └── package.json
 ├── packages/
 │   └── shared-types/             # API request/response types shared by both layers
@@ -148,8 +140,8 @@ org-graph/
 ### 6.2 Create the CognoDB instance
 
 1. Sign up at <https://console.cognodb.com/signup>. Free tier, no credit card.
-2. From the console, create a free **c0** instance and pick a region. Provisions in under a minute.
-3. Save the connection URI of the form `bolt+s://<instance-id>.databases.cognodb.cloud` and the generated password for the user `cognodb`. The password is shown **exactly once** — copy it immediately.
+2. From the console, create a free instance and pick a region. Provisions in under a minute.
+3. Save the connection URI of the form `bolt+s://<instance-id>.databases.cognodb.com` and the generated password for the user `cognodb`. The password is shown **exactly once** — copy it immediately.
 
 ### 6.3 Clone & install
 
@@ -161,103 +153,68 @@ pnpm install
 
 ### 6.4 Configure environment variables
 
-Create the env files (templates below). Never commit real credentials.
+Copy the templates and fill in real values. **Never commit `backend/.env`** — it's in `.gitignore`.
 
-**`backend/.env`**
 ```bash
-COGNODB_URI=bolt+s://<instance-id>.databases.cognodb.cloud
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+Edit `backend/.env`:
+
+```bash
+COGNODB_URI=bolt+s://<instance-id>.databases.cognodb.com
 COGNODB_USER=cognodb
 COGNODB_PASSWORD=<your-saved-password>
 PORT=3000
 ```
 
-**`frontend/.env`**
-```bash
-VITE_API_BASE_URL=http://localhost:3000
-```
-
 ### 6.5 Load seed data
 
 ```bash
-pnpm --filter backend seed
+pnpm seed
 ```
 
-This populates the graph with realistic synthetic data: ~50 people, 10 departments, 30 projects, 40 products, 20 suppliers, 15 locations — sized to fit the free-tier RAM ceiling.
+This wipes any existing data and loads: 1 CEO + 2 VPs + 5 Directors + 10 Managers + 32 ICs (50 people), 10 departments, 30 projects, 40 products, 20 suppliers, 15 locations, plus all 8 relationship types. The seed is deterministic — re-running produces the same graph.
+
+To wipe without reseeding: `pnpm wipe`.
 
 ### 6.6 Start dev servers
 
-In two terminals:
-
 ```bash
-# Terminal 1 — backend (http://localhost:3000)
-pnpm --filter backend dev
-
-# Terminal 2 — frontend (http://localhost:5173, Vite proxies /api to backend)
-pnpm --filter frontend dev
+pnpm dev
 ```
 
-Open <http://localhost:5173>.
+This starts the backend (port 3000) and the frontend Vite dev server (port 5173, proxies `/api` to the backend) in parallel. Open <http://localhost:5173>.
+
+To run them separately:
+
+```bash
+pnpm --filter @org-graph/backend dev
+pnpm --filter @org-graph/frontend dev
+```
 
 ---
 
-## 7. Main queries
+## 7. API
 
-All queries are **parameterised** through the Neo4j driver — no string-concatenated Cypher.
+All endpoints live under `/api`. All list endpoints accept `page`, `pageSize`, and per-resource `sort` + `order` query params (whitelisted fields, never interpolated into Cypher).
 
-### Q1 — Shortest reporting path between two people
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health` | DB connection status + node count |
+| GET | `/api/dashboard` | Aggregate counts + suppliers per region |
+| GET | `/api/search?q=<term>` | Global cross-label search (min 2 chars) |
+| GET | `/api/people` · `/api/people/:id` | List + detail |
+| GET | `/api/people/:id/reports-chain?to=<id>` | Shortest path via `REPORTS_TO` (multi-hop) |
+| GET | `/api/departments` · `/api/departments/:id` | List + detail |
+| GET | `/api/projects` · `/api/projects/:id` | List + detail; `?status=active\|planned\|done` |
+| GET | `/api/products` · `/api/products/:id` | List + detail |
+| GET | `/api/suppliers` · `/api/suppliers/:id` | List + detail |
+| GET | `/api/locations` | List (no detail view) |
+| POST | `/api/query` | Run arbitrary read-only Cypher (`{ cypher, params }`) |
 
-```cypher
-MATCH path = shortestPath(
-  (a:Person {id: $fromId})-[:REPORTS_TO*]-(b:Person {id: $toId})
-)
-RETURN [n IN nodes(path) | n.name] AS chain, length(path) AS hops
-```
-
-*Why interesting:* `shortestPath` with variable-length patterns — the equivalent in SQL is a recursive CTE with cycle detection.
-
-### Q2 — All employees who ultimately report up to a person
-
-```cypher
-MATCH (p:Person)-[:REPORTS_TO*]->(boss:Person {id: $bossId})
-RETURN DISTINCT p.name, p.title
-ORDER BY p.name
-```
-
-*Why interesting:* Multi-hop traversal (≥2 hops), unbounded depth.
-
-### Q3 — Projects that depend on suppliers in a region
-
-```cypher
-MATCH (proj:Project)-[:USES]->(p:Product)-[:SUPPLIED_BY]->(s:Supplier)-[:LOCATED_IN]->(l:Location)
-WHERE l.region = $region
-RETURN DISTINCT proj.name, proj.status
-```
-
-*Why interesting:* 3-hop traversal across org and supply domains.
-
-### Q4 — Common managers between two employees
-
-```cypher
-MATCH (a:Person {id: $aId})-[:REPORTS_TO*]->(m:Person),
-      (b:Person {id: $bId})-[:REPORTS_TO*]->(m)
-RETURN DISTINCT m.name, m.title
-```
-
-*Why interesting:* Path intersection — awkward in SQL, native in Cypher.
-
-### Q5 — Departments with no supplier redundancy for a critical product
-
-```cypher
-MATCH (d:Department)<-[:WORKS_IN]-(p:Person)-[:MANAGES]->(proj:Project)-[:USES]->(prod:Product)
-WHERE prod.category = 'critical'
-WITH prod, collect(DISTINCT prod) AS products
-MATCH (prod)-[:SUPPLIED_BY]->(s:Supplier)
-WITH prod, count(s) AS supplierCount
-WHERE supplierCount < 2
-RETURN prod.name, supplierCount
-```
-
-*Why interesting:* Pattern + aggregation in one pass.
+The `/api/query` endpoint runs a guard that strips comments and rejects any query containing `CREATE`, `MERGE`, `DELETE`, `DETACH`, `SET`, `REMOVE`, `DROP`, `ALTER`, `GRANT`, `REVOKE`, `CALL dbms`, `CALL db.`, `LOAD CSV`, or `USING PERIODIC`. Queries must contain `MATCH` and `RETURN`.
 
 ---
 
@@ -265,14 +222,14 @@ RETURN prod.name, supplierCount
 
 | Path | Page | Purpose |
 |---|---|---|
-| `/` | Dashboard | Counts, entry points |
-| `/people` | People list | Browse, search, sort |
-| `/people/:id` | Person detail | Reporting chain, projects, dept |
-| `/departments` · `/departments/:id` | Departments | People + projects per dept |
-| `/projects` · `/projects/:id` | Projects | People + products used |
+| `/` | Dashboard | Aggregate counts + suppliers per region |
+| `/people` · `/people/:id` | People | Searchable list; detail with profile, manager, direct reports, projects, and a "find reports chain" multi-hop picker |
+| `/departments` · `/departments/:id` | Departments | People + projects per dept, with location |
+| `/projects` · `/projects/:id` | Projects | Status filter; detail with managers, dept, products |
 | `/products` · `/products/:id` | Products | Suppliers + projects |
-| `/suppliers` · `/suppliers/:id` | Suppliers | Products + locations |
-| `/explorer` | Graph Explorer | Read-only Cypher runner, graph view of results |
-| `/search` | Global search | Cross-label search |
+| `/suppliers` · `/suppliers/:id` | Suppliers | Products + location |
+| `/locations` | Locations | List only |
+| `/explorer` | Graph Explorer | Read-only Cypher runner with 5 preset queries |
+| any other path | 404 | Catch-all |
 
-UI uses shadcn/ui for components, with explicit **loading** (`Skeleton`), **empty** (`Empty`), and **error** (`Alert`) states.
+UI uses hand-written shadcn/ui primitives with explicit **loading** (Skeleton), **empty** (EmptyState), and **error** (Alert) states. The nav bar shows a live DB connection indicator that polls `/api/health` every 10 seconds.
