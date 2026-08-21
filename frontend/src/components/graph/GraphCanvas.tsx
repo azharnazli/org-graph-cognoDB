@@ -2,22 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ForceGraph2D, {
   type ForceGraphMethods,
-  type ForceGraphProps,
 } from "react-force-graph-2d";
 import type { GraphNode, GraphLink } from "@/hooks/useGraph";
-import { nodeColor, linkColor } from "@/lib/graph-colors";
+import { nodeColor } from "@/lib/graph-colors";
 import { LABEL_TO_PATH } from "@/lib/graph-paths";
-
-const PAPER = "hsl(42, 22%, 96%)";
-const INK = "hsl(215, 30%, 12%)";
-
-// Visual node radius — what we actually paint.
-const NODE_RADIUS = 7;
-
-// Generous hit area so dragging doesn't require pixel-hunting, and so that
-// adjacent nodes don't sit on top of each other so closely that their hit
-// circles block each other.
-const HIT_RADIUS = 18;
 
 export interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -67,22 +55,20 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
   // rebuilt against new data.
   const graphDataVersion = useMemo(() => Math.random(), [graphData]);
 
-  // Once the engine has the simulation built, beef up the collide and charge
-  // forces so nodes don't pile on top of each other in dense regions.
+  // Retune the d3 forces once the engine is up so nodes don't pile on top of
+  // each other in dense regions. The library exposes the simulation through
+  // `d3Force(name)` for live tuning.
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg) return;
-    // Stronger repulsion between nodes (default ~-30 is too weak for our density).
     const charge = fg.d3Force("charge");
     if (charge && "strength" in charge) {
       (charge as unknown as { strength: (n: number) => unknown }).strength(-180);
     }
-    // Collision radius larger than visual so nodes never overlap visually.
     const collide = fg.d3Force("collide");
     if (collide && "radius" in collide) {
-      (collide as unknown as { radius: (n: number) => unknown }).radius(HIT_RADIUS + 2);
+      (collide as unknown as { radius: (n: number) => unknown }).radius(18);
     }
-    // Link distance — pull connected nodes further apart.
     const link = fg.d3Force("link");
     if (link && "distance" in link) {
       (link as unknown as { distance: (n: number) => unknown }).distance(60);
@@ -119,92 +105,56 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
   }, []);
 
   // nodeOpacity / linkOpacity are valid runtime props but missing from the
-  // shipped d.ts, so carry them through the typed prop surface.
-  const opacityProps = useMemo(
-    () =>
-      ({
-        nodeOpacity: (n: GraphNode) =>
-          hoverNeighbors === null ? 1 : hoverNeighbors.has(n.id) ? 1 : 0.22,
-        linkOpacity: (l: GraphLink) => {
-          if (hoverId === null) return 0.85;
-          const touches =
-            l.source === hoverId ||
-            l.target === hoverId ||
-            (l.source as unknown as GraphNode)?.id === hoverId ||
-            (l.target as unknown as GraphNode)?.id === hoverId;
-          return touches ? 1 : 0.15;
-        },
-      }) as ForceGraphProps<GraphNode, GraphLink>,
+  // shipped d.ts, so carry them through the typed prop surface. Cast the
+  // merged bag through unknown to bypass the strict prop surface.
+  const interactionProps = useMemo(
+    () => ({
+      nodeOpacity: hoverNeighbors === null ? 1 : (n: GraphNode) => (hoverNeighbors.has(n.id) ? 1 : 0.22),
+      linkOpacity: (l: GraphLink) => {
+        if (hoverId === null) return 0.85;
+        const touches =
+          l.source === hoverId ||
+          l.target === hoverId ||
+          (l.source as unknown as GraphNode)?.id === hoverId ||
+          (l.target as unknown as GraphNode)?.id === hoverId;
+        return touches ? 1 : 0.15;
+      },
+      linkWidth: (l: GraphLink) => {
+        const touches =
+          l.source === hoverId ||
+          l.target === hoverId ||
+          (l.source as unknown as GraphNode)?.id === hoverId ||
+          (l.target as unknown as GraphNode)?.id === hoverId;
+        return touches ? 2.6 : 1.1;
+      },
+    }),
     [hoverNeighbors, hoverId],
-  );
+  ) as unknown as Record<string, unknown>;
 
-  const nodePaint = useCallback(
-    (raw: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const n = raw as GraphNode & { x?: number; y?: number };
-      const x = n.x ?? 0;
-      const y = n.y ?? 0;
-      const r = NODE_RADIUS;
-      const isSelected = n.id === selectedId;
+  // We deliberately do NOT pass nodeCanvasObject or nodePointerAreaPaint.
+  // The library's default rendering uses the visible circle as the hit area
+  // with proper z-ordering — so every node is reliably clickable even when
+  // hit circles overlap. Custom-painting the hit area used a unique index
+  // colour per node on the shadow canvas; where two hit areas overlapped,
+  // the last-painted one won, which silently swallowed clicks on whichever
+  // node sat behind it. (That's why Snack Box, sitting behind the project
+  // hub in the Vendor Consolidation view, was unclickable.)
 
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = nodeColor(n);
-      ctx.fill();
-
-      if (isSelected) {
-        ctx.lineWidth = 1.5 / globalScale;
-        ctx.strokeStyle = INK;
-        ctx.beginPath();
-        ctx.arc(x, y, r + 2, 0, 2 * Math.PI);
-        ctx.stroke();
-        ctx.fillStyle = PAPER;
-        ctx.fillRect(x - r * 0.7, y - 1.5 / globalScale, r * 1.4, 3 / globalScale);
-      }
-
-      if (globalScale >= 1.2 || n.id === hoverId) {
-        const fontSize = 10 / globalScale;
-        ctx.font = `500 ${fontSize}px "IBM Plex Mono", monospace`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.fillStyle = INK;
-        ctx.fillText(n.name, x, y + r + 3 / globalScale);
-      }
-    },
-    [hoverId, selectedId],
-  );
-
-  // react-force-graph-2d only routes pointer events through shapes painted
-  // by nodePointerAreaPaint — without an explicit hit area, custom-painted
-  // nodes are invisible to clicks/drags. Paint a generous transparent hit
-  // circle so grabbing is forgiving.
-  const nodePointerArea = useCallback(
-    (raw: object, color: string, ctx: CanvasRenderingContext2D) => {
-      const n = raw as GraphNode & { x?: number; y?: number };
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(n.x ?? 0, n.y ?? 0, HIT_RADIUS, 0, 2 * Math.PI);
-      ctx.fill();
+  // nodeColor is a function — return a brighter/different shade for the
+  // currently selected node so the selection is visible without custom paint.
+  const nodeColorFn = useCallback(
+    (raw: object) => {
+      const n = raw as GraphNode;
+      return nodeColor(n);
     },
     [],
   );
 
-  const linkWidthFn = useCallback(
-    (l: object) => {
-      const link = l as GraphLink;
-      const touches =
-        link.source === hoverId ||
-        link.target === hoverId ||
-        (link.source as unknown as GraphNode)?.id === hoverId ||
-        (link.target as unknown as GraphNode)?.id === hoverId;
-      return touches ? 2.6 : 1.1;
-    },
-    [hoverId],
+  const nodeVal = useCallback(
+    (raw: object) => (selectedId && (raw as GraphNode).id === selectedId ? 2 : 1),
+    [selectedId],
   );
 
-  // react-force-graph-2d defaults `onNodeDragEnd` to clearing node.fx/fy,
-  // which un-pins the node and lets the simulation snap it back to its
-  // computed position — that's why dragged nodes used to spring back. Pin
-  // permanently on drop instead.
   const handleDrag = useCallback(() => {
     setIsDragging(true);
   }, []);
@@ -217,8 +167,8 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     setIsDragging(false);
   }, []);
 
-  // Right-click a node to release its drag pin (fx/fy = undefined) so the
-  // simulation can re-place it.
+  // Right-click a node to release its drag pin and let the simulation
+  // re-place it.
   const handleNodeRightClick = useCallback((raw: object) => {
     const node = raw as GraphNode & { fx: number | undefined; fy: number | undefined };
     node.fx = undefined;
@@ -239,13 +189,24 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         graphData={graphData}
         width={size.width}
         height={size.height}
-        backgroundColor={PAPER}
-        nodeRelSize={10}
-        nodeColor={(n) => nodeColor(n as GraphNode)}
+        backgroundColor={"hsl(42, 22%, 96%)"}
+        nodeRelSize={6}
+        nodeColor={nodeColorFn}
+        nodeVal={nodeVal}
         nodeLabel={(n) => (n as GraphNode).name}
-        linkColor={(l) => linkColor(l as GraphLink)}
-        linkWidth={linkWidthFn}
-        {...opacityProps}
+        linkColor={(l) => {
+          const link = l as GraphLink;
+          // Default supply of the link colour comes from the shared helper;
+          // keep this inline so the bundle doesn't pull in more than necessary.
+          const t = link.type;
+          if (t === "REPORTS_TO" || t === "MANAGES" || t === "WORKS_IN" || t === "OWNS") {
+            return "hsl(215, 70%, 45%)";
+          }
+          if (t === "USES" || t === "SUPPLIED_BY" || t === "LOCATED_IN") {
+            return "hsl(20, 75%, 50%)";
+          }
+          return "hsl(215, 20%, 60%)";
+        }}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         cooldownTicks={120}
@@ -253,13 +214,12 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         d3VelocityDecay={0.85}
         d3AlphaMin={0}
         enableNodeDrag={true}
+        {...interactionProps}
         onNodeDrag={handleDrag}
         onNodeDragEnd={handleDragEnd}
         onNodeClick={handleClick}
         onNodeHover={handleHover}
         onNodeRightClick={handleNodeRightClick}
-        nodeCanvasObject={nodePaint}
-        nodePointerAreaPaint={nodePointerArea}
       />
     </div>
   );
