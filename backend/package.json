@@ -1,0 +1,30 @@
+{
+  "name": "@org-graph/backend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "seed": "tsx scripts/seed.ts",
+    "wipe": "tsx scripts/wipe.ts"
+  },
+  "dependencies": {
+    "@org-graph/shared-types": "workspace:*",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "neo4j-driver": "^5.28.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
