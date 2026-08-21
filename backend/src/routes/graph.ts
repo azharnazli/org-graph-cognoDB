@@ -77,14 +77,12 @@ graphRouter.get("/graph", async (req, res, next) => {
 
         const result = await session.run(
           `MATCH (start {id: $nodeId})
-           OPTIONAL MATCH (start)-[r1]-(n1)
-           WITH start, collect(DISTINCT n1) AS depth1, collect(DISTINCT r1) AS rels1
-           OPTIONAL MATCH path = (start)-[*2..${depth}]-(n2)
-           WHERE n2 <> start AND NOT n2 IN depth1
-           WITH start, depth1, rels1,
-                collect(DISTINCT n2) AS depth2,
-                reduce(acc = [], p IN collect(path) | acc + relationships(p)) AS pathRels
-           RETURN start, depth1, depth2, rels1 + pathRels AS rels`,
+           OPTIONAL MATCH path = (start)-[*1..${depth}]-(end)
+           WHERE end <> start
+           WITH start,
+                collect(DISTINCT end) AS others,
+                collect(DISTINCT path) AS paths
+           RETURN start, others, paths`,
           { nodeId },
         );
 
@@ -95,24 +93,34 @@ graphRouter.get("/graph", async (req, res, next) => {
         }
 
         const start = rec.get("start");
-        const depth1 = (rec.get("depth1") ?? []) as Array<{ properties: Record<string, unknown>; labels: string[]; identity: unknown }>;
-        const depth2 = (rec.get("depth2") ?? []) as Array<{ properties: Record<string, unknown>; labels: string[]; identity: unknown }>;
-        const rels = (rec.get("rels") ?? []) as Array<{ start: unknown; end: unknown; type: string }>;
+        const others = (rec.get("others") ?? []) as Array<{ properties: Record<string, unknown>; labels: string[]; identity: unknown }>;
+        const paths = (rec.get("paths") ?? []) as Array<{
+          segments: Array<{
+            start: { properties: Record<string, unknown>; labels: string[]; identity: unknown };
+            end: { properties: Record<string, unknown>; labels: string[]; identity: unknown };
+            relationship: { type: string };
+          }>;
+        }>;
 
         const nodeMap = new Map<string, GraphNode>();
         pushNode(nodeMap, start);
-        for (const n of [...depth1, ...depth2]) {
+        for (const n of others) {
           if (n && n.properties) pushNode(nodeMap, n);
         }
 
         const links: GraphLink[] = [];
-        for (const r of rels) {
-          if (!r) continue;
-          links.push({
-            source: String((r.start as { properties?: Record<string, unknown>; identity: unknown }).properties?.["id"] ?? (r.start as { identity: unknown }).identity),
-            target: String((r.end as { properties?: Record<string, unknown>; identity: unknown }).properties?.["id"] ?? (r.end as { identity: unknown }).identity),
-            type: String(r.type),
-          });
+        for (const p of paths) {
+          if (!p) continue;
+          for (const seg of p.segments) {
+            if (!seg?.start?.properties || !seg?.end?.properties) continue;
+            pushNode(nodeMap, seg.start);
+            pushNode(nodeMap, seg.end);
+            links.push({
+              source: nodeIdOf(seg.start),
+              target: nodeIdOf(seg.end),
+              type: String(seg.relationship.type),
+            });
+          }
         }
 
         const body: GraphResponse = { view, nodes: Array.from(nodeMap.values()), links };
