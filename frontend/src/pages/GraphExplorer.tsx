@@ -1,13 +1,15 @@
 import { lazy, Suspense, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useGraph, type GraphView } from "@/hooks/useGraph";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LABEL_LEGEND, entityAccent } from "@/lib/graph-colors";
+import { pathForLabel } from "@/lib/graph-paths";
 
 const GraphCanvas = lazy(() =>
   import("@/components/graph/GraphCanvas").then((m) => ({ default: m.GraphCanvas })),
@@ -115,6 +117,9 @@ function Legend() {
 }
 
 function SelectedNodePanel({ node }: { node: ReturnType<typeof useGraph>["data"] extends infer D ? D extends { data: { nodes: Array<infer N> } } ? N | null : never : never }) {
+  const navigate = useNavigate();
+  const detailPath = node ? pathForLabel(node.label) : undefined;
+
   if (!node) {
     return (
       <Card>
@@ -155,6 +160,17 @@ function SelectedNodePanel({ node }: { node: ReturnType<typeof useGraph>["data"]
             ))}
           </dl>
         </div>
+        {detailPath ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => navigate(`${detailPath}/${node.id}`)}
+          >
+            Open {node.label} page
+            <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

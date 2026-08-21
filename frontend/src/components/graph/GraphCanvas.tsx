@@ -6,18 +6,10 @@ import ForceGraph2D, {
 } from "react-force-graph-2d";
 import type { GraphNode, GraphLink } from "@/hooks/useGraph";
 import { nodeColor, linkColor } from "@/lib/graph-colors";
+import { LABEL_TO_PATH } from "@/lib/graph-paths";
 
 const PAPER = "hsl(42, 22%, 96%)";
 const INK = "hsl(215, 30%, 12%)";
-
-const LABEL_TO_PATH: Record<string, string> = {
-  Person: "/people",
-  Department: "/departments",
-  Project: "/projects",
-  Product: "/products",
-  Supplier: "/suppliers",
-  Location: "/locations",
-};
 
 export interface GraphCanvasProps {
   nodes: GraphNode[];
