@@ -28,6 +28,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
   const [size, setSize] = useState({ width: 800, height });
   const fgRef = useRef<ForceGraphMethods<GraphNode, GraphLink> | undefined>(undefined);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -42,7 +43,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     return () => ro.disconnect();
   }, [height]);
 
-  // react-force-graph-2d re-initialises the d3 simulation every time the
+  // react-force-graph-2d re-initialises its d3 simulation every time the
   // `graphData` reference changes. Without this memo, every hover/select
   // re-render rebuilds the object, re-heats the simulation, and the layout
   // never settles — nodes visibly drift under the cursor.
@@ -154,18 +155,34 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
   // which un-pins the node and lets the simulation snap it back to its
   // computed position — that's why dragged nodes used to spring back. Pin
   // permanently on drop instead.
+  const handleDrag = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
   const handleDragEnd = useCallback((raw: object) => {
     const node = raw as GraphNode & { x?: number; y?: number; fx: number | undefined; fy: number | undefined };
     if (node.x === undefined || node.y === undefined) return;
     node.fx = node.x;
     node.fy = node.y;
+    setIsDragging(false);
   }, []);
+
+  // Double-click a node to release its drag pin and let the simulation
+  // re-place it.
+  const handleNodeDoubleClick = useCallback((raw: object) => {
+    const node = raw as GraphNode & { fx: number | undefined; fy: number | undefined };
+    node.fx = undefined;
+    node.fy = undefined;
+  }, []);
+
+  // Cursor: grabbing while a drag is active, grab when hovering a node, default otherwise.
+  const cursor = isDragging ? "grabbing" : hoverId ? "grab" : "default";
 
   return (
     <div
       ref={containerRef}
       className="w-full overflow-hidden rounded-md border border-border bg-background"
-      style={{ height }}
+      style={{ height, cursor }}
     >
       <ForceGraph2D
         ref={fgRef}
@@ -173,7 +190,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         width={size.width}
         height={size.height}
         backgroundColor={PAPER}
-        nodeRelSize={5}
+        nodeRelSize={7}
         nodeColor={(n) => nodeColor(n as GraphNode)}
         nodeLabel={(n) => (n as GraphNode).name}
         linkColor={(l) => linkColor(l as GraphLink)}
@@ -186,9 +203,11 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         d3VelocityDecay={0.85}
         d3AlphaMin={0}
         enableNodeDrag={true}
+        onNodeDrag={handleDrag}
         onNodeDragEnd={handleDragEnd}
         onNodeClick={handleClick}
         onNodeHover={handleHover}
+        onNodeRightClick={handleNodeDoubleClick}
         nodeCanvasObject={nodePaint}
       />
     </div>
