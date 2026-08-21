@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGraph, type GraphView } from "@/hooks/useGraph";
+import { useGraph, type GraphNode, type GraphView } from "@/hooks/useGraph";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,7 +116,7 @@ function Legend() {
   );
 }
 
-function SelectedNodePanel({ node }: { node: ReturnType<typeof useGraph>["data"] extends infer D ? D extends { data: { nodes: Array<infer N> } } ? N | null : never : never }) {
+function SelectedNodePanel({ node }: { node: GraphNode | null }) {
   const navigate = useNavigate();
   const detailPath = node ? pathForLabel(node.label) : undefined;
 
