@@ -138,6 +138,21 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     [hoverId, selectedId],
   );
 
+  // react-force-graph-2d only honours pointer events on shapes painted by
+  // nodePointerAreaPaint — providing nodeCanvasObject alone leaves the node
+  // invisible to clicks/drags. Paint a transparent hit circle that's a touch
+  // larger than the visible one so grabbing is forgiving.
+  const nodePointerArea = useCallback(
+    (raw: object, color: string, ctx: CanvasRenderingContext2D) => {
+      const n = raw as GraphNode & { x?: number; y?: number };
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(n.x ?? 0, n.y ?? 0, 9, 0, 2 * Math.PI);
+      ctx.fill();
+    },
+    [],
+  );
+
   const linkWidthFn = useCallback(
     (l: object) => {
       const link = l as GraphLink;
@@ -209,6 +224,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         onNodeHover={handleHover}
         onNodeRightClick={handleNodeDoubleClick}
         nodeCanvasObject={nodePaint}
+        nodePointerAreaPaint={nodePointerArea}
       />
     </div>
   );
