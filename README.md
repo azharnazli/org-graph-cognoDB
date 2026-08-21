@@ -8,6 +8,16 @@ A small web application backed by a **graph database** (CognoDB), exploring an o
 
 ---
 
+## Demo
+
+A quick look at the app in action (38-second screen recording):
+
+<br />
+
+![App demo](recording.gif)
+
+---
+
 ## 1. Use case
 
 Most business data lives in rows and joins — but the interesting questions in an org-and-supply-chain context are about **connections**: *who ultimately reports to the CEO?*, *which projects depend on a supplier in region X?*, *how are two employees connected through their managers?*
