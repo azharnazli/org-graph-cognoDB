@@ -4,6 +4,10 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["IBM Plex Sans", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -34,11 +38,23 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        line: {
+          command: "hsl(var(--line-command))",
+          works: "hsl(var(--line-works))",
+          projects: "hsl(var(--line-projects))",
+          supply: "hsl(var(--line-supply))",
+          role: "hsl(var(--line-role))",
+          slate: "hsl(var(--line-slate))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        card: "0 1px 2px hsl(215 30% 12% / 0.06), 0 4px 12px hsl(215 30% 12% / 0.06)",
+        lift: "0 2px 4px hsl(215 30% 12% / 0.08), 0 8px 24px hsl(215 30% 12% / 0.1)",
       },
     },
   },

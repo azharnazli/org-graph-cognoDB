@@ -7,16 +7,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { LABEL_LEGEND } from "@/lib/graph-colors";
+import { LABEL_LEGEND, entityAccent } from "@/lib/graph-colors";
 
 const GraphCanvas = lazy(() =>
   import("@/components/graph/GraphCanvas").then((m) => ({ default: m.GraphCanvas })),
 );
 
-const VIEWS: Array<{ id: GraphView; label: string; description: string }> = [
-  { id: "org", label: "Org Chart", description: "People, departments, roles — reporting structure" },
-  { id: "supply", label: "Supply Chain", description: "Projects, products, suppliers, locations" },
-  { id: "all", label: "Full Graph", description: "Every node and relationship" },
+const VIEWS: Array<{ id: GraphView; label: string; color: string; description: string }> = [
+  { id: "org", label: "Org Chart", color: entityAccent("Person"), description: "People, departments, roles — reporting structure" },
+  { id: "supply", label: "Supply Chain", color: entityAccent("Supplier"), description: "Projects, products, suppliers, locations" },
+  { id: "all", label: "Full Graph", color: entityAccent("Role"), description: "Every node and relationship" },
 ];
 
 export function GraphExplorerPage() {
@@ -42,6 +42,11 @@ export function GraphExplorerPage() {
             size="sm"
             onClick={() => { setView(v.id); setSelectedId(null); }}
           >
+            <span
+              aria-hidden
+              className="mr-1.5 inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: v.color }}
+            />
             {v.label}
           </Button>
         ))}
@@ -88,15 +93,20 @@ export function GraphExplorerPage() {
 
 function Legend() {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-      <span className="text-muted-foreground">Legend:</span>
+    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        Lines
+      </span>
       {LABEL_LEGEND.map((l) => (
-        <span key={l.label} className="flex items-center gap-1.5">
+        <span key={l.label} className="flex items-center gap-2">
           <span
-            className="inline-block h-3 w-3 rounded-full"
+            aria-hidden
+            className="h-0.5 w-6 rounded-full"
             style={{ backgroundColor: l.color }}
           />
-          <span>{l.label}</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+            {l.label}
+          </span>
         </span>
       ))}
     </div>
@@ -123,6 +133,11 @@ function SelectedNodePanel({ node }: { node: ReturnType<typeof useGraph>["data"]
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="inline-block h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: entityAccent(node.label) }}
+          />
           {node.name}
           <Badge variant="secondary">{node.label}</Badge>
         </CardTitle>

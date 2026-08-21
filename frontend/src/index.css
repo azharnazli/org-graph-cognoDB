@@ -4,32 +4,85 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
-}
+    /* Ticket-paper ground + route ink */
+    --background: 42 22% 96%;
+    --foreground: 215 30% 12%;
+    --card: 0 0% 99%;
+    --card-foreground: 215 30% 12%;
 
-@layer base {
+    /* Route lines */
+    --primary: 193 85% 27%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 153 55% 26%;
+    --secondary-foreground: 0 0% 100%;
+    --destructive: 6 60% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --muted: 42 16% 90%;
+    --muted-foreground: 215 15% 38%;
+    --accent: 193 70% 92%;
+    --accent-foreground: 215 30% 12%;
+
+    --border: 42 16% 82%;
+    --input: 42 16% 82%;
+    --ring: 193 85% 27%;
+    --radius: 0.375rem;
+
+    /* Extended route lines + neutral */
+    --line-command: 193 85% 27%;
+    --line-works: 153 55% 26%;
+    --line-projects: 42 88% 46%;
+    --line-supply: 6 60% 45%;
+    --line-role: 266 42% 52%;
+    --line-slate: 215 18% 34%;
+  }
+
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  input,
+  textarea {
+    caret-color: hsl(var(--primary));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.35);
+    border-radius: 999px;
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  table {
+    font-variant-numeric: tabular-nums;
   }
 }

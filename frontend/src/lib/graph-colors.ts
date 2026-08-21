@@ -1,32 +1,45 @@
 import type { GraphNode, GraphLink } from "@/hooks/useGraph";
 
-// Stable color per node label. HSL strings work with canvas.
+// Transit route lines. HSL strings work with canvas.
+const LINE_COMMAND = "hsl(193, 85%, 27%)"; // REPORTS_TO — the command line
+const LINE_WORKS = "hsl(153, 55%, 26%)"; // WORKS_IN — the works line
+const LINE_PROJECTS = "hsl(42, 88%, 46%)"; // MANAGES / USES-out — the projects line
+const LINE_SUPPLY = "hsl(6, 60%, 45%)"; // SUPPLIED_BY — the supply line
+const LINE_ROLE = "hsl(266, 42%, 52%)"; // Products — the goods line
+const LINE_STEEL = "hsl(200, 22%, 46%)"; // Locations — the network line
+const LINE_SLATE = "hsl(215, 18%, 34%)"; // Roles — the neutral line
+
 const LABEL_COLORS: Record<string, string> = {
-  Person: "hsl(220, 70%, 55%)",
-  Department: "hsl(280, 60%, 60%)",
-  Role: "hsl(0, 0%, 50%)",
-  Project: "hsl(140, 60%, 50%)",
-  Product: "hsl(30, 80%, 55%)",
-  Supplier: "hsl(350, 70%, 55%)",
-  Location: "hsl(180, 60%, 45%)",
+  Person: LINE_COMMAND,
+  Department: LINE_WORKS,
+  Role: LINE_SLATE,
+  Project: LINE_PROJECTS,
+  Product: LINE_ROLE,
+  Supplier: LINE_SUPPLY,
+  Location: LINE_STEEL,
 };
 
 const REL_COLORS: Record<string, string> = {
-  REPORTS_TO: "hsl(220, 70%, 55%)",
-  WORKS_IN: "hsl(280, 60%, 60%)",
-  HAS_ROLE: "hsl(0, 0%, 70%)",
-  MANAGES: "hsl(140, 60%, 50%)",
-  USES: "hsl(30, 80%, 55%)",
-  SUPPLIED_BY: "hsl(350, 70%, 55%)",
-  LOCATED_IN: "hsl(180, 60%, 45%)",
+  REPORTS_TO: LINE_COMMAND,
+  WORKS_IN: LINE_WORKS,
+  HAS_ROLE: LINE_SLATE,
+  MANAGES: LINE_PROJECTS,
+  USES: LINE_ROLE,
+  SUPPLIED_BY: LINE_SUPPLY,
+  LOCATED_IN: LINE_STEEL,
 };
 
 export function nodeColor(node: GraphNode): string {
-  return LABEL_COLORS[node.label] ?? "hsl(0, 0%, 50%)";
+  return LABEL_COLORS[node.label] ?? LINE_SLATE;
+}
+
+/** Station accent for a domain label — used for DOM marks, not canvas. */
+export function entityAccent(label: string): string {
+  return LABEL_COLORS[label] ?? LINE_SLATE;
 }
 
 export function linkColor(link: GraphLink): string {
-  return REL_COLORS[link.type] ?? "hsl(0, 0%, 70%)";
+  return REL_COLORS[link.type] ?? LINE_SLATE;
 }
 
 export const LABEL_LEGEND: Array<{ label: string; color: string }> = [

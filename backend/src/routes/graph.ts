@@ -129,7 +129,11 @@ graphRouter.get("/graph", async (req, res, next) => {
           }
         }
 
-        const body: GraphResponse = { view, nodes: Array.from(nodeMap.values()), links };
+        // Excluded labels (Role) never land in nodeMap, but their relationships
+        // still surface in path segments; drop links to endpoints we won't render
+        // so the graph never references a node that isn't there.
+        const navigable = links.filter((l) => nodeMap.has(l.source) && nodeMap.has(l.target));
+        const body: GraphResponse = { view, nodes: Array.from(nodeMap.values()), links: navigable };
         res.json({ data: body });
         return;
       }
