@@ -11,6 +11,14 @@ import { LABEL_TO_PATH } from "@/lib/graph-paths";
 const PAPER = "hsl(42, 22%, 96%)";
 const INK = "hsl(215, 30%, 12%)";
 
+// Visual node radius — what we actually paint.
+const NODE_RADIUS = 7;
+
+// Generous hit area so dragging doesn't require pixel-hunting, and so that
+// adjacent nodes don't sit on top of each other so closely that their hit
+// circles block each other.
+const HIT_RADIUS = 18;
+
 export interface GraphCanvasProps {
   nodes: GraphNode[];
   links: GraphLink[];
@@ -54,6 +62,33 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     }),
     [nodes, links],
   );
+  // A counter that bumps when graphData changes — used as the dependency for
+  // the d3-force tuning effect so it re-applies after the simulation is
+  // rebuilt against new data.
+  const graphDataVersion = useMemo(() => Math.random(), [graphData]);
+
+  // Once the engine has the simulation built, beef up the collide and charge
+  // forces so nodes don't pile on top of each other in dense regions.
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    // Stronger repulsion between nodes (default ~-30 is too weak for our density).
+    const charge = fg.d3Force("charge");
+    if (charge && "strength" in charge) {
+      (charge as unknown as { strength: (n: number) => unknown }).strength(-180);
+    }
+    // Collision radius larger than visual so nodes never overlap visually.
+    const collide = fg.d3Force("collide");
+    if (collide && "radius" in collide) {
+      (collide as unknown as { radius: (n: number) => unknown }).radius(HIT_RADIUS + 2);
+    }
+    // Link distance — pull connected nodes further apart.
+    const link = fg.d3Force("link");
+    if (link && "distance" in link) {
+      (link as unknown as { distance: (n: number) => unknown }).distance(60);
+    }
+    fg.d3ReheatSimulation();
+  }, [graphDataVersion]);
 
   const hoverNeighbors = useMemo(() => {
     if (!hoverId) return null;
@@ -108,7 +143,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
       const n = raw as GraphNode & { x?: number; y?: number };
       const x = n.x ?? 0;
       const y = n.y ?? 0;
-      const r = 6.5;
+      const r = NODE_RADIUS;
       const isSelected = n.id === selectedId;
 
       ctx.beginPath();
@@ -138,16 +173,16 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     [hoverId, selectedId],
   );
 
-  // react-force-graph-2d only honours pointer events on shapes painted by
-  // nodePointerAreaPaint — providing nodeCanvasObject alone leaves the node
-  // invisible to clicks/drags. Paint a transparent hit circle that's a touch
-  // larger than the visible one so grabbing is forgiving.
+  // react-force-graph-2d only routes pointer events through shapes painted
+  // by nodePointerAreaPaint — without an explicit hit area, custom-painted
+  // nodes are invisible to clicks/drags. Paint a generous transparent hit
+  // circle so grabbing is forgiving.
   const nodePointerArea = useCallback(
     (raw: object, color: string, ctx: CanvasRenderingContext2D) => {
       const n = raw as GraphNode & { x?: number; y?: number };
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(n.x ?? 0, n.y ?? 0, 9, 0, 2 * Math.PI);
+      ctx.arc(n.x ?? 0, n.y ?? 0, HIT_RADIUS, 0, 2 * Math.PI);
       ctx.fill();
     },
     [],
@@ -182,9 +217,9 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
     setIsDragging(false);
   }, []);
 
-  // Double-click a node to release its drag pin and let the simulation
-  // re-place it.
-  const handleNodeDoubleClick = useCallback((raw: object) => {
+  // Right-click a node to release its drag pin (fx/fy = undefined) so the
+  // simulation can re-place it.
+  const handleNodeRightClick = useCallback((raw: object) => {
     const node = raw as GraphNode & { fx: number | undefined; fy: number | undefined };
     node.fx = undefined;
     node.fy = undefined;
@@ -205,7 +240,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         width={size.width}
         height={size.height}
         backgroundColor={PAPER}
-        nodeRelSize={7}
+        nodeRelSize={10}
         nodeColor={(n) => nodeColor(n as GraphNode)}
         nodeLabel={(n) => (n as GraphNode).name}
         linkColor={(l) => linkColor(l as GraphLink)}
@@ -222,7 +257,7 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClic
         onNodeDragEnd={handleDragEnd}
         onNodeClick={handleClick}
         onNodeHover={handleHover}
-        onNodeRightClick={handleNodeDoubleClick}
+        onNodeRightClick={handleNodeRightClick}
         nodeCanvasObject={nodePaint}
         nodePointerAreaPaint={nodePointerArea}
       />
