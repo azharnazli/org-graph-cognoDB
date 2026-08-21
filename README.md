@@ -106,6 +106,7 @@ org-graph/
 │   │   ├── seed.ts               # wipes + loads seed data
 │   │   ├── wipe.ts               # DETACH DELETE the whole graph
 │   │   └── data.ts               # deterministic seed fixtures
+│   ├── Dockerfile                # multi-stage: tsc build + prod node_modules
 │   └── package.json
 ├── frontend/                     # React SPA (Vite)
 │   ├── src/
@@ -121,10 +122,14 @@ org-graph/
 │   │   ├── api/client.ts         # axios instance
 │   │   ├── App.tsx               # router + routes
 │   │   └── main.tsx              # QueryClientProvider + bootstrap
+│   ├── Dockerfile                # vite build -> nginx (serves SPA + proxies /api)
+│   ├── nginx.conf                # SPA fallback + /api proxy to the backend
 │   └── package.json
 ├── packages/
 │   └── shared-types/             # API request/response types shared by both layers
 ├── README.md
+├── docker-compose.yml            # one-command container deploy
+├── .dockerignore                 # keeps secrets + node_modules out of images
 ├── pnpm-workspace.yaml
 └── package.json                  # workspace root
 ```
@@ -195,6 +200,24 @@ To run them separately:
 pnpm --filter @org-graph/backend dev
 pnpm --filter @org-graph/frontend dev
 ```
+
+### 6.7 Run with Docker (optional)
+
+The app ships as two containers: the Express backend and an nginx container that serves the built frontend and proxies `/api` to the backend. CognoDB stays external — no database container needed.
+
+**Prerequisites:** Docker with the Compose plugin.
+
+1. Create `backend/.env` as in **6.4** (compose injects it into the backend container at runtime).
+2. Build and start:
+
+   ```bash
+   docker compose up --build
+   ```
+
+3. Open <http://localhost:8080>. The API is also reachable directly at <http://localhost:3000>.
+4. Stop with `docker compose down`. Add `-d` to run detached: `docker compose up -d --build`.
+
+To deploy to a server, set `CORS_ORIGIN` in `docker-compose.yml` to the frontend's public origin and point `nginx.conf`'s `proxy_pass` at the backend service (it already is, by service name).
 
 ---
 
