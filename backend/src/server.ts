@@ -3,6 +3,15 @@ import cors from "cors";
 import "dotenv/config";
 
 import { healthRouter } from "./routes/health.js";
+import { peopleRouter } from "./routes/people.js";
+import { departmentsRouter } from "./routes/departments.js";
+import { projectsRouter } from "./routes/projects.js";
+import { productsRouter } from "./routes/products.js";
+import { suppliersRouter } from "./routes/suppliers.js";
+import { locationsRouter } from "./routes/locations.js";
+import { searchRouter } from "./routes/search.js";
+import { dashboardRouter } from "./routes/dashboard.js";
+import { queryRouter } from "./routes/query.js";
 import { verifyConnection, closeDriver } from "./db/driver.js";
 
 const PORT = Number(process.env["PORT"] ?? 3000);
@@ -19,6 +28,15 @@ app.use(
 app.use(express.json());
 
 app.use("/api", healthRouter);
+app.use("/api", peopleRouter);
+app.use("/api", departmentsRouter);
+app.use("/api", projectsRouter);
+app.use("/api", productsRouter);
+app.use("/api", suppliersRouter);
+app.use("/api", locationsRouter);
+app.use("/api", searchRouter);
+app.use("/api", dashboardRouter);
+app.use("/api", queryRouter);
 
 // 404
 app.use((_req, res) => {
