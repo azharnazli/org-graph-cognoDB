@@ -35,7 +35,8 @@ export function SupplierDialog({ open, onOpenChange, initial, onSaved }: Supplie
     if (!open) return;
     setName(initial?.name ?? "");
     setRating(initial?.rating?.toString() ?? "0");
-    setLocationId(initial && "location" in initial ? initial.location?.id ?? "" : "");
+    const detail = initial && "location" in initial ? initial : null;
+    setLocationId(initial?.locationId ?? detail?.location?.id ?? "");
     setError(null);
   }, [open, initial]);
 

@@ -24,9 +24,13 @@ export interface GraphCanvasProps {
   links: GraphLink[];
   selectedId?: string | null;
   height?: number;
+  // Optional override for click behaviour. If provided, the canvas will not
+  // navigate — it just reports the clicked node id. Detail pages omit this
+  // prop so they get the default route-by-label behaviour.
+  onNodeClick?: (id: string) => void;
 }
 
-export function GraphCanvas({ nodes, links, selectedId, height = 640 }: GraphCanvasProps) {
+export function GraphCanvas({ nodes, links, selectedId, height = 640, onNodeClick }: GraphCanvasProps) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 800, height });
@@ -64,6 +68,10 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640 }: GraphCan
   }, [hoverId, links]);
 
   const handleClick = (node: GraphNode): void => {
+    if (onNodeClick) {
+      onNodeClick(node.id);
+      return;
+    }
     const path = LABEL_TO_PATH[node.label];
     if (path) navigate(`${path}/${node.id}`);
   };
@@ -113,6 +121,8 @@ export function GraphCanvas({ nodes, links, selectedId, height = 640 }: GraphCan
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         cooldownTicks={120}
+        d3VelocityDecay={0.8}
+        d3AlphaMin={0}
         onNodeClick={(n) => handleClick(n as GraphNode)}
         onNodeHover={(n) => setHoverId(n ? (n as GraphNode).id : null)}
         nodeCanvasObject={(node, ctx, globalScale) => {

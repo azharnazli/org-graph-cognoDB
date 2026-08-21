@@ -31,7 +31,7 @@ export function GraphExplorerPage() {
     <>
       <PageHeader
         title="Graph Explorer"
-        description="Explore the graph by view. Click any node to navigate to its detail page."
+        description="Explore the graph by view. Click any node to inspect its properties."
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -76,6 +76,7 @@ export function GraphExplorerPage() {
                 links={graph.links}
                 selectedId={selectedId}
                 height={640}
+                onNodeClick={setSelectedId}
               />
             </Suspense>
           ) : null}

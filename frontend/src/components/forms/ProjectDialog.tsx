@@ -61,9 +61,8 @@ export function ProjectDialog({ open, onOpenChange, initial, onSaved }: ProjectD
     if (!open) return;
     setName(initial?.name ?? "");
     setStatus(initial?.status ?? "planned");
-    setDepartmentId(
-      initial && "department" in initial ? initial.department?.id ?? "" : "",
-    );
+    const detail = initial && "department" in initial ? initial : null;
+    setDepartmentId(initial?.departmentId ?? detail?.department?.id ?? "");
     setManagerIds(
       initial && "managers" in initial && Array.isArray(initial.managers)
         ? initial.managers.map((m) => m.id)

@@ -36,7 +36,8 @@ export function DepartmentDialog({ open, onOpenChange, initial, onSaved }: Depar
     if (!open) return;
     setName(initial?.name ?? "");
     setCostCenter(initial?.costCenter ?? "");
-    setLocationId(initial && "location" in initial ? initial.location?.id ?? "" : "");
+    const detail = initial && "location" in initial ? initial : null;
+    setLocationId(initial?.locationId ?? detail?.location?.id ?? "");
     setError(null);
   }, [open, initial]);
 

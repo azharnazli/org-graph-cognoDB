@@ -33,7 +33,9 @@ projectsRouter.get("/projects", async (req, res, next) => {
       const result = await session.run(
         `MATCH (p:Project)
          ${where}
-         RETURN p { .id, .name, .status } AS p
+         OPTIONAL MATCH (d:Department)-[:OWNS]->(p)
+         WITH p, head(collect(DISTINCT d)) AS d
+         RETURN p { .id, .name, .status, departmentId: d.id } AS p
          ORDER BY p.${sortField} ${order}
          SKIP $skip LIMIT $limit`,
         params,

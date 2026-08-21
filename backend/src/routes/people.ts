@@ -23,7 +23,15 @@ peopleRouter.get("/people", async (req, res, next) => {
     const cypher = `
       MATCH (p:Person)
       ${where}
-      RETURN p { .id, .name, .email, .title, joinedAt: toString(p.joinedAt) } AS p
+      OPTIONAL MATCH (p)-[:WORKS_IN]->(d:Department)
+      OPTIONAL MATCH (p)-[:HAS_ROLE]->(r:Role)
+      OPTIONAL MATCH (p)-[:REPORTS_TO]->(mgr:Person)
+      WITH p, d, r, mgr
+      RETURN p {
+        .id, .name, .email, .title,
+        joinedAt: toString(p.joinedAt),
+        departmentId: d.id, roleId: r.id, reportsToId: mgr.id
+      } AS p
       ORDER BY p.${sortField} ${order}
       SKIP $skip LIMIT $limit
     `;

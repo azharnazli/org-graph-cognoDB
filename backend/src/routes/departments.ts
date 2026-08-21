@@ -27,7 +27,9 @@ departmentsRouter.get("/departments", async (req, res, next) => {
     try {
       const result = await session.run(
         `MATCH (d:Department)
-         RETURN d { .id, .name, .costCenter } AS d
+         OPTIONAL MATCH (d)-[:LOCATED_IN]->(l:Location)
+         WITH d, l
+         RETURN d { .id, .name, .costCenter, locationId: l.id } AS d
          ORDER BY d.${sortField} ${order}
          SKIP $skip LIMIT $limit`,
         { skip, limit },

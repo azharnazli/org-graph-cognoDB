@@ -27,7 +27,9 @@ suppliersRouter.get("/suppliers", async (req, res, next) => {
     try {
       const result = await session.run(
         `MATCH (s:Supplier)
-         RETURN s { .id, .name, .rating } AS s
+         OPTIONAL MATCH (s)-[:LOCATED_IN]->(l:Location)
+         WITH s, l
+         RETURN s { .id, .name, .rating, locationId: l.id } AS s
          ORDER BY s.${sortField} ${order}
          SKIP $skip LIMIT $limit`,
         { skip, limit },

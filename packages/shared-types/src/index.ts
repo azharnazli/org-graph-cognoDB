@@ -11,12 +11,20 @@ export interface Person {
   email: string;
   title: string;
   joinedAt: string; // ISO date
+  // FK IDs populated by the list endpoint so edit dialogs on the list page can
+  // pre-fill the foreign-key selects without a second round trip. Absent on
+  // freshly-created persons that have no relationships yet.
+  departmentId?: string | null;
+  roleId?: string | null;
+  reportsToId?: string | null;
 }
 
 export interface Department {
   id: string;
   name: string;
   costCenter: string;
+  // Populated by the list endpoint; absent when the department has no location.
+  locationId?: string | null;
 }
 
 export interface Role {
@@ -28,6 +36,9 @@ export interface Project {
   id: string;
   name: string;
   status: ProjectStatus;
+  // Populated by the list endpoint. Managers come from a separate endpoint
+  // (GET /projects/:id/managers) — too expensive to join inline at page size.
+  departmentId?: string | null;
 }
 
 export interface Product {
@@ -41,6 +52,8 @@ export interface Supplier {
   id: string;
   name: string;
   rating: number;
+  // Populated by the list endpoint.
+  locationId?: string | null;
 }
 
 export interface Location {

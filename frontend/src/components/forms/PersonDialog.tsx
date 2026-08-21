@@ -59,9 +59,9 @@ export function PersonDialog({ open, onOpenChange, initial, onSaved }: PersonDia
     setTitle(initial?.title ?? "");
     setJoinedAt(initial?.joinedAt ?? "");
     const detail = initial && "department" in initial ? initial : null;
-    setDepartmentId(detail?.department?.id ?? "");
-    setRoleId(detail?.role?.id ?? "");
-    setReportsToId(detail?.reportsTo?.id ?? "");
+    setDepartmentId(initial?.departmentId ?? detail?.department?.id ?? "");
+    setRoleId(initial?.roleId ?? detail?.role?.id ?? "");
+    setReportsToId(initial?.reportsToId ?? detail?.reportsTo?.id ?? "");
     setError(null);
   }, [open, initial]);
 
