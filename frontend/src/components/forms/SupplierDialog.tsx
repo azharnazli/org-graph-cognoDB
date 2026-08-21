@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Field, TextField, SelectField } from "@/components/forms/Field";
 import { useLocations } from "@/lib/list-state";
 import { mutations } from "@/lib/mutations";
-import type { Supplier } from "@org-graph/shared-types";
+import type { Supplier, SupplierDetail } from "@org-graph/shared-types";
 
 interface SupplierDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial?: Supplier;
+  initial?: Supplier | SupplierDetail;
   onSaved?: () => void;
 }
 
@@ -30,6 +30,14 @@ export function SupplierDialog({ open, onOpenChange, initial, onSaved }: Supplie
   const locs = useLocations({ page: 1, pageSize: 200 });
   const create = mutations.supplier.create();
   const update = mutations.supplier.update();
+
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setRating(initial?.rating?.toString() ?? "0");
+    setLocationId(initial && "location" in initial ? initial.location?.id ?? "" : "");
+    setError(null);
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

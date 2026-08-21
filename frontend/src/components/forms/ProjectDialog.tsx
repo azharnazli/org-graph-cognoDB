@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,14 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { cn } from "@/lib/utils";
 import { mutations } from "@/lib/mutations";
-import type { Project, ProjectStatus } from "@org-graph/shared-types";
+import type { Project, ProjectDetail, ProjectStatus } from "@org-graph/shared-types";
 
 interface ProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial?: Project;
+  // List pages pass Project; detail pages pass ProjectDetail (which includes
+  // department / managers) so the form can pre-fill those.
+  initial?: Project | ProjectDetail;
   onSaved?: () => void;
 }
 
@@ -39,22 +41,45 @@ export function ProjectDialog({ open, onOpenChange, initial, onSaved }: ProjectD
   const people = usePeople({ page: 1, pageSize: 200 });
 
   // Load current managers when editing so the multi-select starts checked.
+  // queryKey includes the project id so a different edit click refetches.
   const initialManagers = useQuery<ManagersResult>({
     queryKey: ["project-managers", initial?.id],
     queryFn: async () =>
       initial?.id
         ? (await api.get<ManagersResult>(`/api/projects/${initial.id}/managers`)).data
         : { data: [] },
-    enabled: Boolean(initial?.id),
+    enabled: Boolean(initial?.id) && open,
   });
 
   const create = mutations.project.create();
   const update = mutations.project.update();
 
-  // Seed managerIds once initial load resolves.
-  if (isEdit && initialManagers.data && managerIds.length === 0) {
-    setManagerIds(initialManagers.data.data);
-  }
+  // Reset form when the dialog opens with a different entity. Also seeds
+  // managerIds from the freshly-loaded manager list (ProjectDetail.managers
+  // gives us the same data without an extra round trip when available).
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setStatus(initial?.status ?? "planned");
+    setDepartmentId(
+      initial && "department" in initial ? initial.department?.id ?? "" : "",
+    );
+    setManagerIds(
+      initial && "managers" in initial && Array.isArray(initial.managers)
+        ? initial.managers.map((m) => m.id)
+        : [],
+    );
+    setError(null);
+  }, [open, initial]);
+
+  // Once the per-project managers endpoint resolves, overwrite managerIds —
+  // covers the list-page case where ProjectDetail.managers isn't available.
+  useEffect(() => {
+    if (!open || !initial?.id) return;
+    if (initialManagers.data) {
+      setManagerIds(initialManagers.data.data);
+    }
+  }, [open, initial?.id, initialManagers.data]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

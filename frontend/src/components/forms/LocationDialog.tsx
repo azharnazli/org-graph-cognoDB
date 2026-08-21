@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, TextField } from "@/components/forms/Field";
 import { mutations } from "@/lib/mutations";
-import type { Location } from "@org-graph/shared-types";
+import type { Location, LocationDetail } from "@org-graph/shared-types";
 
 interface LocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial?: Location;
+  // List pages pass Location; detail pages pass LocationDetail.
+  initial?: Location | LocationDetail;
   onSaved?: () => void;
 }
 
@@ -29,12 +30,14 @@ export function LocationDialog({ open, onOpenChange, initial, onSaved }: Locatio
   const create = mutations.location.create();
   const update = mutations.location.update();
 
-  const reset = () => {
+  // Reset form when the dialog opens with a different entity.
+  useEffect(() => {
+    if (!open) return;
     setCity(initial?.city ?? "");
     setCountry(initial?.country ?? "");
     setRegion(initial?.region ?? "");
     setError(null);
-  };
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +57,7 @@ export function LocationDialog({ open, onOpenChange, initial, onSaved }: Locatio
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onClose={() => onOpenChange(false)} className="max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit location" : "New location"}</DialogTitle>

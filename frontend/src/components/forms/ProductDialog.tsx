@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, TextField } from "@/components/forms/Field";
 import { mutations } from "@/lib/mutations";
-import type { Product } from "@org-graph/shared-types";
+import type { Product, ProductDetail } from "@org-graph/shared-types";
 
 interface ProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial?: Product;
+  // List pages pass Product; detail pages pass ProductDetail.
+  initial?: Product | ProductDetail;
   onSaved?: () => void;
 }
 
@@ -28,6 +29,15 @@ export function ProductDialog({ open, onOpenChange, initial, onSaved }: ProductD
 
   const create = mutations.product.create();
   const update = mutations.product.update();
+
+  // Reset form when the dialog opens with a different entity.
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setSku(initial?.sku ?? "");
+    setCategory(initial?.category ?? "");
+    setError(null);
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

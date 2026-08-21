@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,12 +13,14 @@ import { useDepartments, usePeople } from "@/lib/list-state";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { mutations } from "@/lib/mutations";
-import type { Person, Role } from "@org-graph/shared-types";
+import type { Person, PersonDetail, Role } from "@org-graph/shared-types";
 
 interface PersonDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial?: Person;
+  // List pages pass the basic Person; detail pages pass PersonDetail (which
+  // includes department/role/reportsTo) so the form can pre-fill those.
+  initial?: Person | PersonDetail;
   onSaved?: () => void;
 }
 
@@ -46,6 +48,22 @@ export function PersonDialog({ open, onOpenChange, initial, onSaved }: PersonDia
 
   const create = mutations.person.create();
   const update = mutations.person.update();
+
+  // Reset form when the dialog opens with a different entity (e.g. clicking
+  // Edit on row 1 then row 2 in the list — the component is the same
+  // instance, so useState alone keeps stale values).
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setEmail(initial?.email ?? "");
+    setTitle(initial?.title ?? "");
+    setJoinedAt(initial?.joinedAt ?? "");
+    const detail = initial && "department" in initial ? initial : null;
+    setDepartmentId(detail?.department?.id ?? "");
+    setRoleId(detail?.role?.id ?? "");
+    setReportsToId(detail?.reportsTo?.id ?? "");
+    setError(null);
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

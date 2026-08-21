@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Field, TextField, SelectField } from "@/components/forms/Field";
 import { useLocations } from "@/lib/list-state";
 import { mutations } from "@/lib/mutations";
-import type { Department } from "@org-graph/shared-types";
+import type { Department, DepartmentDetail } from "@org-graph/shared-types";
 
 interface DepartmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initial?: Department;
+  // List pages pass Department; detail pages pass DepartmentDetail.
+  initial?: Department | DepartmentDetail;
   onSaved?: () => void;
 }
 
@@ -30,6 +31,14 @@ export function DepartmentDialog({ open, onOpenChange, initial, onSaved }: Depar
   const locs = useLocations({ page: 1, pageSize: 200 });
   const create = mutations.department.create();
   const update = mutations.department.update();
+
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setCostCenter(initial?.costCenter ?? "");
+    setLocationId(initial && "location" in initial ? initial.location?.id ?? "" : "");
+    setError(null);
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
